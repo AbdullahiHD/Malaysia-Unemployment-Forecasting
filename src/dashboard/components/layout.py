@@ -90,7 +90,7 @@ def create_sidebar(colors):
                     _create_nav_item(
                         "nav-transform",
                         "fas fa-cogs",
-                        "Transform Dataset",
+                        "Data Transformations",
                         "New",
                         colors["warning"],
                     ),
@@ -116,7 +116,7 @@ def create_sidebar(colors):
                         },
                     ),
                     html.Div(
-                        "3.4%",
+                        "3.1%",
                         style={
                             "fontSize": "22px",
                             "fontWeight": "bold",
@@ -138,7 +138,7 @@ def create_sidebar(colors):
                         }
                     ),
                     html.Div(
-                        "15.2M",
+                        "17.3M",
                         style={
                             "fontSize": "18px",
                             "fontWeight": "bold",

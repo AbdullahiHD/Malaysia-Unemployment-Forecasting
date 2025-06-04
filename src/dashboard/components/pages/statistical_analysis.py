@@ -1,12 +1,9 @@
-"""
-Statistical Analysis page components for comprehensive testing.
-Handles stationarity, normality, and full statistical analysis.
-"""
 
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import numpy as np
+import pandas as pd
 from dashboard.components.layout import (
     create_page_header,
     create_control_card,
@@ -133,12 +130,103 @@ def create_results_area():
     return html.Div([html.Div(id="stat-results")])
 
 
+def calculate_descriptive_statistics(series):
+    """Calculate proper descriptive statistics from series data"""
+    try:
+        # Ensure we have valid numeric data
+        clean_series = pd.to_numeric(series, errors="coerce").dropna()
+
+        if len(clean_series) == 0:
+            return {
+                "mean": 0.0,
+                "std": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "median": 0.0,
+                "q25": 0.0,
+                "q75": 0.0,
+                "skewness": 0.0,
+                "kurtosis": 0.0,
+            }
+
+        stats = {
+            "mean": float(clean_series.mean()),
+            "std": float(clean_series.std()),
+            "min": float(clean_series.min()),
+            "max": float(clean_series.max()),
+            "median": float(clean_series.median()),
+            "q25": float(clean_series.quantile(0.25)),
+            "q75": float(clean_series.quantile(0.75)),
+            "skewness": float(clean_series.skew()),
+            "kurtosis": float(clean_series.kurtosis()),
+        }
+
+        return stats
+
+    except Exception as e:
+        print(f"❌ Error calculating descriptive statistics: {e}")
+        return {
+            "mean": 0.0,
+            "std": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "median": 0.0,
+            "q25": 0.0,
+            "q75": 0.0,
+            "skewness": 0.0,
+            "kurtosis": 0.0,
+        }
+
+
+def generate_passive_recommendations(stationarity_result, normality_result, series):
+    """Generate passive, declarative recommendations"""
+    recommendations = []
+
+    try:
+        if (
+            stationarity_result.get("combined_analysis", {}).get("conclusion")
+            == "Non-stationary"
+        ):
+            recommendations.append("Differencing needed to achieve stationarity")
+
+        if normality_result.get("consensus") == "Non-normal":
+            recommendations.append("Data is non-normal; transformation may be required")
+
+        clean_series = pd.to_numeric(series, errors="coerce").dropna()
+        if len(clean_series) > 0:
+            if abs(clean_series.skew()) > 1:
+                recommendations.append("High skewness detected in the data")
+
+            if clean_series.kurtosis() > 3:
+                recommendations.append("Heavy-tailed distribution observed")
+
+        recommendations.append("ACF/PACF patterns available for model identification")
+
+        if len(recommendations) == 1:  
+            recommendations.insert(
+                0, "Data characteristics suitable for time series analysis"
+            )
+
+    except Exception as e:
+        recommendations = [
+            "Statistical analysis completed",
+            "Review test results for data characteristics",
+        ]
+
+    return recommendations
+
+
 def create_full_stats_display(results, series, colors):
-    """Create comprehensive statistical analysis display"""
+    """Create comprehensive statistical analysis display with fixed descriptive stats"""
     try:
         stationarity = results["stationarity_analysis"]["combined_analysis"]
         normality = results["normality_analysis"]
-        desc_stats = results["descriptive_statistics"]
+
+        desc_stats = calculate_descriptive_statistics(series)
+
+        passive_recommendations = generate_passive_recommendations(
+            results["stationarity_analysis"], results["normality_analysis"], series
+        )
 
         # Create ACF and PACF charts
         acf_fig, pacf_fig = create_acf_pacf_charts(series, colors)
@@ -210,7 +298,6 @@ def create_full_stats_display(results, series, colors):
                             width=6,
                             className="mb-3",
                         ),
-                        # Descriptive Statistics
                         dbc.Col(
                             [
                                 dbc.Card(
@@ -233,25 +320,37 @@ def create_full_stats_display(results, series, colors):
                                                 html.P(
                                                     [
                                                         html.Strong("Mean: "),
-                                                        f"{desc_stats.get('mean', 0):.3f}",
+                                                        f"{desc_stats['mean']:.3f}",
                                                     ]
                                                 ),
                                                 html.P(
                                                     [
                                                         html.Strong("Std Dev: "),
-                                                        f"{desc_stats.get('std', 0):.3f}",
+                                                        f"{desc_stats['std']:.3f}",
                                                     ]
                                                 ),
                                                 html.P(
                                                     [
                                                         html.Strong("Min: "),
-                                                        f"{desc_stats.get('min', 0):.3f}",
+                                                        f"{desc_stats['min']:.3f}",
                                                     ]
                                                 ),
                                                 html.P(
                                                     [
                                                         html.Strong("Max: "),
-                                                        f"{desc_stats.get('max', 0):.3f}",
+                                                        f"{desc_stats['max']:.3f}",
+                                                    ]
+                                                ),
+                                                html.P(
+                                                    [
+                                                        html.Strong("Median: "),
+                                                        f"{desc_stats['median']:.3f}",
+                                                    ]
+                                                ),
+                                                html.P(
+                                                    [
+                                                        html.Strong("Skewness: "),
+                                                        f"{desc_stats['skewness']:.3f}",
                                                     ]
                                                 ),
                                             ],
@@ -483,7 +582,7 @@ def create_full_stats_display(results, series, colors):
                     ],
                     className="mb-4",
                 ),
-                # Recommendations
+                # Data Characteristics Section
                 dbc.Row(
                     [
                         dbc.Col(
@@ -493,10 +592,10 @@ def create_full_stats_display(results, series, colors):
                                         dbc.CardHeader(
                                             [
                                                 html.I(
-                                                    className="fas fa-lightbulb",
+                                                    className="fas fa-clipboard-list",
                                                     style={"marginRight": "8px"},
                                                 ),
-                                                "Modeling Recommendations",
+                                                "Data Characteristics",
                                             ],
                                             style={
                                                 "backgroundColor": colors["light"],
@@ -505,14 +604,20 @@ def create_full_stats_display(results, series, colors):
                                         ),
                                         dbc.CardBody(
                                             [
-                                                html.Ol(
+                                                html.Ul(
                                                     [
-                                                        html.Li(rec)
-                                                        for rec in results.get(
-                                                            "recommendations", []
+                                                        html.Li(
+                                                            rec,
+                                                            style={
+                                                                "marginBottom": "8px"
+                                                            },
                                                         )
+                                                        for rec in passive_recommendations
                                                     ],
-                                                    style={"color": colors["text"]},
+                                                    style={
+                                                        "color": colors["text"],
+                                                        "paddingLeft": "20px",
+                                                    },
                                                 )
                                             ],
                                             style={
@@ -583,7 +688,7 @@ def create_quick_stat_display(results, test_type, series, colors):
                                                 html.Hr(),
                                                 html.P(
                                                     [
-                                                        html.Strong("Recommendation: "),
+                                                        html.Strong("Note: "),
                                                         recommendation,
                                                     ],
                                                     className="mb-0",
@@ -695,7 +800,7 @@ def create_quick_norm_display(results, test_type, series, colors):
                                                 html.Hr(),
                                                 html.P(
                                                     [
-                                                        html.Strong("Recommendation: "),
+                                                        html.Strong("Note: "),
                                                         recommendation,
                                                     ],
                                                     className="mb-0",
@@ -882,7 +987,7 @@ def create_mini_series_plot(series, test_type, colors):
         )
     )
 
-    # Add trend line for stationarity
+    # Adding trend line for stationarity
     if test_type == "Stationarity":
         x_numeric = np.arange(len(series))
         z = np.polyfit(x_numeric, series, 1)

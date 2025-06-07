@@ -54,7 +54,7 @@ python scripts/train_models.py
 python scripts/generate_forecasts.py
 
 # Launch dashboard
-python scripts/run_dashboard.py
+python run_dashboard.py
 ```
 
 ## 📁 Project Structure

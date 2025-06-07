@@ -80,39 +80,82 @@ def register_forecasting_callbacks(app, data_manager, colors):
             Input("forecast-dataset-dropdown", "value"),
             Input("forecast-model-dropdown", "value"),
             Input("forecast-period-dropdown", "value"),
+            Input("forecast-target-dropdown", "value"),
         ],
         prevent_initial_call=False,  
     )
-    def auto_generate_forecast(dataset_type, model_type, periods):
+    def auto_generate_forecast(dataset_type, model_type, periods, target_variable):
         """Auto-generate forecast when any dropdown changes - no button needed"""
 
         # Check if all required inputs are available
-        if not dataset_type or not model_type or not periods:
-            return create_initial_forecast_state(colors)
+        if not dataset_type or not model_type or not periods or not target_variable:
+            return create_initial_forecast_state(colors, target_variable)
 
         # Checking if forecasting is available
         if not FORECASTING_AVAILABLE:
             error_msg = f"Forecasting not available: {FORECASTING_ERROR}"
             print(f"❌ {error_msg}")
-            return create_forecast_error_state(error_msg, colors)
+            return create_forecast_error_state(error_msg, colors, target_variable)
 
         try:
             print(
-                f"🚀 Auto-generating forecast: {model_type} model, {dataset_type} dataset, {periods} periods"
+                f"🚀 Auto-generating forecast: {model_type} model, {dataset_type} dataset, {target_variable} target, {periods} periods"
             )
 
+            # Ensure periods is an integer
+            try:
+                periods = int(periods)
+            except (TypeError, ValueError):
+                periods = 3  # Default to 3 months if conversion fails
+                
+            # For wrapper models, enforce maximum horizon of 14 months
+            if dataset_type == "youth" and model_type.startswith("wrapper_i") and periods > 14:
+                print(f"⚠️ Wrapper models support maximum 14-month horizon. Limiting from {periods} to 14 months.")
+                periods = 14
+            # For youth ARIMA/SARIMA models, limit horizon to 12 months
+            if dataset_type == "youth" and (model_type.startswith("arima_") or model_type.startswith("sarima_")) and periods > 12:
+                print(f"⚠️ Youth {model_type} supports maximum 12-month horizon. Limiting from {periods} to 12 months.")
+                periods = 12
+                
             forecast_manager = ForecastManager(data_manager, models_dir="models/saved")
+            
+            # Handle wrapper models for youth dataset
+            if dataset_type == "youth" and model_type.startswith("wrapper_i"):
+                # Extract the iteration number from the model_type
+                iteration = int(model_type.replace("wrapper_i", ""))
+                
+                # Generate forecast with the wrapper model - ensure periods is passed correctly
+                print(f"🔍 Generating wrapper forecast for {periods} periods")
+                complete_forecast = forecast_manager.generate_complete_forecast_with_wrapper(
+                    iteration, dataset_type, periods, target_variable
+                )
+            # Handle new ARIMA and SARIMA models for youth dataset
+            elif dataset_type == "youth" and (model_type.startswith("arima_") or model_type.startswith("sarima_")):
+                # These models have youth target variable encoded in their name
+                model_parts = model_type.split("_")
+                model_type_base = model_parts[0]  # 'arima' or 'sarima'
+                age_group = "_".join(model_parts[1:])  # '15_24' or '15_30'
+                target_variable = f"u_rate_{age_group}"
+                
+                print(f"🔍 Generating {model_type_base} forecast for youth {age_group} for {periods} periods")
+                
+                # Use the standard forecast generation with appropriate parameters
+                complete_forecast = forecast_manager.generate_complete_forecast(
+                    model_type_base, dataset_type, periods, target_variable
+                )
+            else:
+                # Check model availability for regular models
+                if not forecast_manager.validate_model_availability(
+                    model_type, dataset_type
+                ):
+                    error_msg = f"Model files not found for {model_type} on {dataset_type} dataset. Check models directory."
+                    print(f"❌ {error_msg}")
+                    return create_forecast_error_state(error_msg, colors, target_variable)
 
-            if not forecast_manager.validate_model_availability(
-                model_type, dataset_type
-            ):
-                error_msg = f"Model files not found for {model_type} on {dataset_type} dataset. Check models directory."
-                print(f"❌ {error_msg}")
-                return create_forecast_error_state(error_msg, colors)
-
-            complete_forecast = forecast_manager.generate_complete_forecast(
-                model_type, dataset_type, periods
-            )
+                # Generate regular forecast
+                complete_forecast = forecast_manager.generate_complete_forecast(
+                    model_type, dataset_type, periods, target_variable
+                )
 
             print(f"✅ Auto-forecast generated successfully")
             print(
@@ -164,6 +207,18 @@ def register_forecasting_callbacks(app, data_manager, colors):
                     forecast_data["confidence_lower"] = forecast_data[
                         "confidence_lower"
                     ].tolist()
+                    
+                # Verify we have the correct number of periods in the forecast
+                if len(forecast_data.get("forecast_values", [])) != periods:
+                    print(f"⚠️ Expected {periods} periods but got {len(forecast_data.get('forecast_values', []))} - adjusting")
+                    # Trim or extend the forecast to match requested periods
+                    if len(forecast_data.get("forecast_values", [])) > periods:
+                        forecast_data["forecast_values"] = forecast_data["forecast_values"][:periods]
+                        forecast_data["dates"] = forecast_data["dates"][:periods]
+                        if "confidence_upper" in forecast_data:
+                            forecast_data["confidence_upper"] = forecast_data["confidence_upper"][:periods]
+                        if "confidence_lower" in forecast_data:
+                            forecast_data["confidence_lower"] = forecast_data["confidence_lower"][:periods]
 
             # Add generation info to model_info
             if "generation_time" in complete_forecast:
@@ -172,7 +227,23 @@ def register_forecasting_callbacks(app, data_manager, colors):
                 ].strftime("%Y-%m-%d %H:%M:%S")
             model_info["forecast_periods"] = periods
             model_info["dataset"] = dataset_type
-            model_info["model_type"] = model_type.upper()
+            
+            # For wrapper models, set appropriate model_type
+            if dataset_type == "youth" and model_type.startswith("wrapper_i"):
+                iteration = int(model_type.replace("wrapper_i", ""))
+                model_info["model_type"] = f"WRAPPER-i{iteration}"
+                # Add maximum forecast horizon information
+                model_info["max_forecast_horizon"] = 14
+            # For new ARIMA and SARIMA models for youth
+            elif dataset_type == "youth" and (model_type.startswith("arima_") or model_type.startswith("sarima_")):
+                model_parts = model_type.split("_")
+                model_type_base = model_parts[0].upper()  # 'ARIMA' or 'SARIMA'
+                age_group = "_".join(model_parts[1:])  # '15_24' or '15_30'
+                model_info["model_type"] = model_type_base
+                model_info["target_variable"] = f"u_rate_{age_group}"
+                model_info["youth_age_group"] = age_group.replace("_", "-")
+            else:
+                model_info["model_type"] = model_type.upper()
 
             enhanced_forecast_data = {
                 **forecast_data,
@@ -216,7 +287,7 @@ def register_forecasting_callbacks(app, data_manager, colors):
             print(f"❌ Auto-forecast generation failed: {error_message}")
             print(f"📋 Full traceback:")
             traceback.print_exc()
-            return create_forecast_error_state(error_message, colors)
+            return create_forecast_error_state(error_message, colors, target_variable)
 
     @app.callback(
         [
@@ -240,7 +311,47 @@ def register_forecasting_callbacks(app, data_manager, colors):
             ], True
 
         try:
-            # Check which models are actually available
+            # For youth dataset, offer wrapper models and the new ARIMA/SARIMA models
+            if dataset_type == "youth":
+                wrapper_options = [
+                    {
+                        "label": "Wrapper 4 - CEEMDAN + validation (Best Performance)",
+                        "value": "wrapper_i4",
+                    },
+                    {
+                        "label": "Wrapper 3 - excluding CEEMDAN with validation loop",
+                        "value": "wrapper_i3",
+                    },
+                    {
+                        "label": "Wrapper 2 - with CEEMDAN decomposition",
+                        "value": "wrapper_i2",
+                    },
+                    {
+                        "label": "Wrapper 1 - base model",
+                        "value": "wrapper_i1",
+                    },
+                    # Add new ARIMA and SARIMA models for youth unemployment
+                    {
+                        "label": "ARIMA - Youth 15-24 Age Group",
+                        "value": "arima_15_24",
+                    },
+                    {
+                        "label": "ARIMA - Youth 15-30 Age Group",
+                        "value": "arima_15_30",
+                    },
+                    {
+                        "label": "SARIMA - Youth 15-24 Age Group",
+                        "value": "sarima_15_24",
+                    },
+                    {
+                        "label": "SARIMA - Youth 15-30 Age Group",
+                        "value": "sarima_15_30",
+                    },
+                ]
+                print(f"📊 Available wrapper and time series models for youth dataset")
+                return wrapper_options, False
+                
+            # Check which models are actually available for other datasets
             forecast_manager = ForecastManager(data_manager, models_dir="models/saved")
 
             available_options = []
@@ -283,6 +394,75 @@ def register_forecasting_callbacks(app, data_manager, colors):
                     "disabled": True,
                 }
             ], True
+
+    @app.callback(
+        [
+            Output("forecast-target-dropdown", "options"),
+            Output("forecast-target-dropdown", "value"),
+        ],
+        [Input("forecast-dataset-dropdown", "value")],
+        prevent_initial_call=False,
+    )
+    def update_target_options(dataset_type):
+        """Update available target variable options based on dataset selection"""
+        if not dataset_type:
+            return [], None
+
+        try:
+            if dataset_type == "youth":
+                target_options = [
+                    {"label": "Youth Unemployment Rate 15-24 (%)", "value": "u_rate_15_24"},
+                    {"label": "Youth Unemployment Rate 15-30 (%)", "value": "u_rate_15_30"},
+                ]
+                default_value = "u_rate_15_24"
+            else:
+                target_options = [
+                    {"label": "Overall Unemployment Rate (%)", "value": "u_rate"},
+                ]
+                default_value = "u_rate"
+                
+            print(f"📊 Available targets for {dataset_type}: {[opt['value'] for opt in target_options]}")
+            return target_options, default_value
+
+        except Exception as e:
+            print(f"❌ Error updating target options: {e}")
+            return [{"label": "Error loading targets", "value": "error", "disabled": True}], None
+
+    @app.callback(
+        Output("forecast-period-dropdown", "options"),
+        [Input("forecast-dataset-dropdown", "value")],
+        prevent_initial_call=False,
+    )
+    def update_period_options(dataset_type):
+        """Update available forecast period options based on dataset selection"""
+        if not dataset_type:
+            return []
+
+        try:
+            # Standard periods for all datasets
+            period_options = [
+                {"label": "1 Month Ahead", "value": 1},
+                {"label": "3 Months Ahead", "value": 3},
+                {"label": "6 Months Ahead", "value": 6},
+                {"label": "12 Months Ahead", "value": 12},
+            ]
+            
+            # For youth dataset with wrapper models, add the 14-month option
+            if dataset_type == "youth":
+                period_options.append({"label": "14 Months Ahead (Maximum)", "value": 14})
+                print(f"📊 Added 14-month option for youth dataset")
+                
+            return period_options
+
+        except Exception as e:
+            print(f"❌ Error updating period options: {e}")
+            return [
+                {"label": "1 Month Ahead", "value": 1},
+                {"label": "3 Months Ahead", "value": 3},
+                {"label": "6 Months Ahead", "value": 6},
+                {"label": "12 Months Ahead", "value": 12},
+            ]
+
 
 def register_overview_callbacks(app, data_manager, colors):
     """Register overview page specific callbacks - Direct data access without Store"""
@@ -438,7 +618,7 @@ def calculate_confidence_level(forecast_data):
     return confidence
 
 
-def create_initial_forecast_state(colors):
+def create_initial_forecast_state(colors, target_variable="u_rate"):
     """Create initial state with default LSTM 3-month forecast"""
     from dash import html
     import dash_bootstrap_components as dbc
@@ -460,7 +640,7 @@ def create_initial_forecast_state(colors):
     )
 
     # Loading chart
-    empty_chart = create_empty_forecast_chart(colors, "Loading AI forecast...")
+    empty_chart = create_empty_forecast_chart(colors, "Loading AI forecast...", target_variable)
 
     # Loading table and info
     empty_table = html.Div(
@@ -492,7 +672,7 @@ def create_initial_forecast_state(colors):
     return empty_cards, empty_chart, empty_table, empty_model_info
 
 
-def create_forecast_error_state(error_message, colors):
+def create_forecast_error_state(error_message, colors, target_variable="u_rate"):
     """Create error state for forecast generation with page colors"""
     from dash import html
     import dash_bootstrap_components as dbc
@@ -521,7 +701,7 @@ def create_forecast_error_state(error_message, colors):
         style={"borderColor": colors["danger"], "color": colors["danger"]},
     )
 
-    error_chart = create_error_forecast_chart(colors, error_message)
+    error_chart = create_error_forecast_chart(colors, error_message, target_variable)
 
     error_text = f"Error: {error_message}"
 

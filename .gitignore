@@ -1,9 +1,0 @@
-# Ignore the specific virtual environment
-venv_py312/
-
-# Python cache and compiled files
-__pycache__/
-*.pyc
-
-# Ignore Python executables (if in root)
-python310.exe

@@ -55,6 +55,7 @@ python scripts/generate_forecasts.py
 
 # Launch dashboard
 python scripts/run_dashboard.py
+python scripts/run_dashboard.py
 ```
 
 ## 📁 Project Structure

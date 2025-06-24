@@ -3,12 +3,15 @@ from dash import html, dcc
 import dash_bootstrap_components as dbc
 from datetime import datetime
 import sys
+import os
 from pathlib import Path
 
+# Setup project paths
 current_dir = Path(__file__).parent
 project_root = current_dir.parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
+# Import internal modules
 from dashboard.utils.data_manager import DashboardDataManager
 from dashboard.utils.theme import ThemeManager
 from dashboard.components.layout import create_main_layout
@@ -19,7 +22,7 @@ from dashboard.components.callbacks import (
 
 
 class MalaysiaUnemploymentDashboard:
-    """Professional Malaysia Labor Force Analytics Dashboard"""
+    """Malaysia Labor Force Analytics Dashboard"""
 
     def __init__(self):
         self.app = dash.Dash(
@@ -41,23 +44,22 @@ class MalaysiaUnemploymentDashboard:
 
         self.app.title = "Malaysia Labor Force Analytics"
 
-        # Initialize managers
+        # Initialize core components
         self.theme = ThemeManager()
         self.data_manager = DashboardDataManager()
 
-        # Setup application
+        # Configure the app
         self._setup_layout()
         self._register_callbacks()
         self._initialize_data()
 
     def _setup_layout(self):
-        """Setup main application layout with custom CSS"""
+        """Configure the main layout"""
         try:
             self.app.index_string = self.theme.get_custom_css()
             self.app.layout = create_main_layout(self.theme.colors)
-            print(" Layout setup completed successfully")
+            print("Layout setup completed successfully.")
         except Exception as e:
-            # Fallback layout
             self.app.layout = html.Div(
                 [
                     html.H1("Malaysia Unemployment Dashboard"),
@@ -66,73 +68,64 @@ class MalaysiaUnemploymentDashboard:
             )
 
     def _register_callbacks(self):
-        """Register all dashboard callbacks with proper error handling"""
+        """Register callbacks"""
         try:
-            print("🔧 Registering callbacks...")
+            print("Registering callbacks...")
 
-            # Register main callbacks (navigation, explorer, statistics, etc.)
             register_all_callbacks(self.app, self.data_manager, self.theme.colors)
-            print("✅ Main callbacks registered")
+            print("Main callbacks registered.")
 
-            # Register overview-specific callbacks for time period buttons
             register_overview_callbacks(self.app, self.data_manager, self.theme.colors)
-            print(" Overview callbacks registered")
+            print("Overview callbacks registered.")
 
-            print(" All callbacks registered successfully")
+            print("All callbacks registered successfully.")
 
         except ImportError as e:
-            print(f" Import error registering callbacks: {e}")
-            print(" Check that all required modules are available")
+            print(f"Import error registering callbacks: {e}")
+            print("Ensure all required modules are available.")
         except Exception as e:
-            print(f" Error registering callbacks: {e}")
-            print(" Dashboard will run with limited functionality")
+            print(f"Error registering callbacks: {e}")
+            print("The dashboard will run with limited functionality.")
 
     def _initialize_data(self):
-        """Auto-initialize data on startup with enhanced error handling"""
+        """Initialize dataset on startup"""
         try:
-            print(" Initializing data manager...")
+            print("Initializing data manager...")
             success = self.data_manager.initialize()
 
             if success:
-                print(" Data auto-initialized successfully")
-                print(
-                    f" Available datasets: {list(self.data_manager.datasets.keys())}"
-                )
-
-                # Print data summary
+                print("Data initialized successfully.")
+                print("Available datasets:")
                 for dataset_name, df in self.data_manager.datasets.items():
                     if df is not None and not df.empty:
-                        print(f"   - {dataset_name}: {len(df)} records")
+                        print(f"  - {dataset_name}: {len(df)} records")
                     else:
-                        print(f"   - {dataset_name}: No data available")
+                        print(f"  - {dataset_name}: No data available")
             else:
-                print(" Using fallback data - some features may be limited")
+                print("Using fallback data. Some features may be limited.")
 
         except Exception as e:
-            print(f" Error initializing data: {e}")
-            print(" Dashboard will run with mock data")
+            print(f"Error initializing data: {e}")
+            print("Running with mock or fallback data.")
 
     def run(self, host="127.0.0.1", port=8050, debug=True):
-        """Run the dashboard application with enhanced startup info"""
+        """Run in local development mode"""
         print("=" * 70)
-        print("🇲🇾 MALAYSIA UNEMPLOYMENT ANALYTICS DASHBOARD")
+        print("MALAYSIA UNEMPLOYMENT ANALYTICS DASHBOARD")
         print("=" * 70)
-        print(f" Starting server on http://{host}:{port}")
-        print(" Professional modular architecture")
-        print(" Enhanced styling and user experience")
-        print(" Fixed serialization and callback issues")
-        print(" Time period buttons fully functional")
-        print(" Real-time unemployment data visualization")
+        print(f"Starting server on http://{host}:{port}")
+        print("Architecture: Modular and maintainable")
+        print("Styling: Bootstrap-based layout")
+        print("Features: Interactive data visualization")
         print("=" * 70)
 
-        # Print data status
         if self.data_manager.initialized:
-            print(" Data Manager: READY")
+            print("Data Manager: READY")
         else:
-            print(" Data Manager: LIMITED (using fallback data)")
+            print("Data Manager: LIMITED (using fallback data)")
 
-        print(" Theme Manager: READY")
-        print(" Layout: READY")
+        print("Theme Manager: READY")
+        print("Layout: READY")
         print("=" * 70)
 
         try:
@@ -142,21 +135,55 @@ class MalaysiaUnemploymentDashboard:
                 self.app.run_server(host=host, port=port, debug=debug)
 
         except KeyboardInterrupt:
-            print("\n Dashboard stopped by user")
+            print("Dashboard stopped by user.")
         except Exception as e:
-            print(f" Error running dashboard: {e}")
-            print("💡 Try running with different host/port settings")
+            print(f"Error running dashboard: {e}")
+            print("Consider changing host/port settings.")
+
+    def run_server_production(self):
+        """Run server in production mode"""
+        port = int(os.environ.get("PORT", 8050))
+        host = os.environ.get("HOST", "0.0.0.0")
+
+        print("=" * 70)
+        print("PRODUCTION DEPLOYMENT - MALAYSIA UNEMPLOYMENT DASHBOARD")
+        print("=" * 70)
+        print(f"Starting production server on {host}:{port}")
+        print("Mode: Production (debugging disabled)")
+        print("Optimizations: Enabled")
+        print("=" * 70)
+
+        if self.data_manager.initialized:
+            print("Data Manager: READY")
+        else:
+            print("Data Manager: LIMITED (using fallback data)")
+
+        print("Theme Manager: READY")
+        print("Layout: READY")
+        print("=" * 70)
+
+        try:
+            self.app.run_server(
+                host=host,
+                port=port,
+                debug=False,
+                dev_tools_ui=False,
+                dev_tools_props_check=False,
+            )
+        except Exception as e:
+            print(f"Production server error: {e}")
+            raise
 
     def get_app(self):
-        """Get the Dash app instance (useful for deployment)"""
+        """Expose Dash app for WSGI servers"""
         return self.app
 
     def get_server(self):
-        """Get the Flask server instance (for deployment platforms like Heroku)"""
+        """Expose Flask server for deployment"""
         return self.app.server
 
 
-# Create application instance
+# Create dashboard instance
 dashboard_app = MalaysiaUnemploymentDashboard()
 
 # Export for deployment platforms
@@ -165,19 +192,22 @@ server = dashboard_app.get_server()
 
 
 def main():
-    """Main function to run the dashboard"""
+    """Entry point for running dashboard"""
     dashboard_app.run()
 
 
-def run_production(host="0.0.0.0", port=8050):
-    """Run dashboard in production mode"""
-    print(" Starting dashboard..")
+def run_production(host="0.0.0.0", port=None):
+    """Run in production mode"""
+    if port is None:
+        port = int(os.environ.get("PORT", 8050))
+
+    print("Starting production dashboard...")
     dashboard_app.run(host=host, port=port, debug=False)
 
 
 def run_development():
-    """Run dashboard in development mode with enhanced debugging"""
-    print("🔧 Starting in DEVELOPMENT mode...")
+    """Run in development mode"""
+    print("Starting in development mode...")
     dashboard_app.run(host="127.0.0.1", port=8050, debug=True)
 
 
@@ -189,23 +219,29 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--mode",
-        choices=["dev", "prod"],
+        choices=["dev", "prod", "render"],
         default="dev",
-        help="Run mode: dev (development) or prod (production)",
+        help="Run mode: dev (development), prod (production), or render (deployment)",
     )
     parser.add_argument(
         "--host", default="127.0.0.1", help="Host address (default: 127.0.0.1)"
     )
     parser.add_argument(
-        "--port", type=int, default=8050, help="Port number (default: 8050)"
+        "--port",
+        type=int,
+        default=None,
+        help="Port number (default: from environment or 8050)",
     )
 
     args = parser.parse_args()
 
-    if args.mode == "prod":
+    if args.mode == "render":
+        dashboard_app.run_server_production()
+    elif args.mode == "prod":
         run_production(host=args.host, port=args.port)
     else:
-        if args.host != "127.0.0.1" or args.port != 8050:
-            dashboard_app.run(host=args.host, port=args.port, debug=True)
+        port = args.port if args.port else 8050
+        if args.host != "127.0.0.1" or port != 8050:
+            dashboard_app.run(host=args.host, port=port, debug=True)
         else:
             run_development()

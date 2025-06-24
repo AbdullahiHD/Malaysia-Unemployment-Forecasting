@@ -1,4 +1,3 @@
-
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
@@ -9,10 +8,8 @@ from dashboard.components.layout import (
     create_control_card,
     create_chart_container,
 )
-
-
 def create_statistics_page(data_manager, colors):
-    """Create statistical analysis page"""
+    """Create statistical analysis page with professional column mapping"""
     datasets = data_manager.get_available_datasets()
 
     header = create_page_header(
@@ -22,14 +19,58 @@ def create_statistics_page(data_manager, colors):
         colors,
     )
 
-    controls = create_statistics_controls(datasets, colors)
+    # Pass data_manager to controls for enhanced dropdown
+    controls = create_statistics_controls(datasets, data_manager, colors)
     results_area = create_results_area()
 
     return html.Div([header, controls, results_area])
 
 
-def create_statistics_controls(datasets, colors):
-    """Create statistical analysis controls"""
+def flatten_grouped_options(grouped_options):
+    if not grouped_options:
+        return []
+
+    if all(
+        isinstance(opt, dict) and "value" in opt and "options" not in opt
+        for opt in grouped_options
+    ):
+        return grouped_options
+
+    flattened = []
+
+    for group in grouped_options:
+        if isinstance(group, dict) and "options" in group:
+            # Adding section header as disabled option
+            flattened.append(
+                {
+                    "label": f"── {group['label']} ──",
+                    "value": f"header_{group['label'].lower().replace(' ', '_')}",
+                    "disabled": True,
+                }
+            )
+            for option in group["options"]:
+                flattened.append(option)
+        else:
+            flattened.append(group)
+
+    return flattened
+
+
+def create_statistics_controls(datasets, data_manager, colors):
+    """Create statistical analysis controls with enhanced variable dropdown"""
+
+    # Get initial variable options for first dataset 
+    initial_variables = []
+    if datasets:
+        try:
+            grouped_variables = data_manager.get_column_display_options(
+                datasets[0], group_by_category=True
+            )
+            # Flatten the grouped structure for the dropdown
+            initial_variables = flatten_grouped_options(grouped_variables)
+        except:
+            initial_variables = []
+
     controls_content = [
         dbc.Row(
             [
@@ -55,7 +96,9 @@ def create_statistics_controls(datasets, colors):
                         ),
                         dcc.Dropdown(
                             id="stat-variable-dropdown",
-                            placeholder="Select variable...",
+                            options=initial_variables,  # Now flattened
+                            placeholder="Select unemployment metric...",
+                            style={"minWidth": "300px"},
                         ),
                     ],
                     width=6,
@@ -124,7 +167,6 @@ def create_statistics_controls(datasets, colors):
         "Analysis Controls", "fas fa-calculator", controls_content, colors
     )
 
-
 def create_results_area():
     """Create results display area"""
     return html.Div([html.Div(id="stat-results")])
@@ -164,7 +206,7 @@ def calculate_descriptive_statistics(series):
         return stats
 
     except Exception as e:
-        print(f"❌ Error calculating descriptive statistics: {e}")
+        print(f"Error calculating descriptive statistics: {e}")
         return {
             "mean": 0.0,
             "std": 0.0,
@@ -650,7 +692,7 @@ def create_quick_stat_display(results, test_type, series, colors):
         mini_fig = create_mini_series_plot(series, test_type, colors)
 
         alert_color = "success" if conclusion == "Stationary" else "warning"
-        icon = "📈" if conclusion == "Stationary" else "📊"
+        icon = "" if conclusion == "Stationary" else ""
 
         return dbc.Row(
             [
@@ -783,9 +825,9 @@ def create_quick_norm_display(results, test_type, series, colors):
                                                 html.H4(
                                                     [
                                                         (
-                                                            "✅"
+                                                            ""
                                                             if consensus == "Normal"
-                                                            else "⚠️"
+                                                            else ""
                                                         ),
                                                         f" Result: {consensus}",
                                                     ],

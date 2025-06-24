@@ -1,10 +1,3 @@
-
-"""
-Malaysia Unemployment Analytics Dashboard - Main Application
-Professional entry point with modular architecture.
-UPDATED: Fixed callback registration and serialization issues.
-"""
-
 import dash
 from dash import html, dcc
 import dash_bootstrap_components as dbc
@@ -12,7 +5,6 @@ from datetime import datetime
 import sys
 from pathlib import Path
 
-# Add project root to path for imports
 current_dir = Path(__file__).parent
 project_root = current_dir.parent.parent
 sys.path.insert(0, str(project_root / "src"))
@@ -63,9 +55,8 @@ class MalaysiaUnemploymentDashboard:
         try:
             self.app.index_string = self.theme.get_custom_css()
             self.app.layout = create_main_layout(self.theme.colors)
-            print("✅ Layout setup completed successfully")
+            print(" Layout setup completed successfully")
         except Exception as e:
-            print(f"❌ Error setting up layout: {e}")
             # Fallback layout
             self.app.layout = html.Div(
                 [
@@ -85,27 +76,27 @@ class MalaysiaUnemploymentDashboard:
 
             # Register overview-specific callbacks for time period buttons
             register_overview_callbacks(self.app, self.data_manager, self.theme.colors)
-            print("✅ Overview callbacks registered")
+            print(" Overview callbacks registered")
 
-            print("✅ All callbacks registered successfully")
+            print(" All callbacks registered successfully")
 
         except ImportError as e:
-            print(f"❌ Import error registering callbacks: {e}")
-            print("📋 Check that all required modules are available")
+            print(f" Import error registering callbacks: {e}")
+            print(" Check that all required modules are available")
         except Exception as e:
-            print(f"❌ Error registering callbacks: {e}")
-            print("📋 Dashboard will run with limited functionality")
+            print(f" Error registering callbacks: {e}")
+            print(" Dashboard will run with limited functionality")
 
     def _initialize_data(self):
         """Auto-initialize data on startup with enhanced error handling"""
         try:
-            print("📊 Initializing data manager...")
+            print(" Initializing data manager...")
             success = self.data_manager.initialize()
 
             if success:
-                print("✅ Data auto-initialized successfully")
+                print(" Data auto-initialized successfully")
                 print(
-                    f"📈 Available datasets: {list(self.data_manager.datasets.keys())}"
+                    f" Available datasets: {list(self.data_manager.datasets.keys())}"
                 )
 
                 # Print data summary
@@ -115,33 +106,33 @@ class MalaysiaUnemploymentDashboard:
                     else:
                         print(f"   - {dataset_name}: No data available")
             else:
-                print("⚠️ Using fallback data - some features may be limited")
+                print(" Using fallback data - some features may be limited")
 
         except Exception as e:
-            print(f"❌ Error initializing data: {e}")
-            print("⚠️ Dashboard will run with mock data")
+            print(f" Error initializing data: {e}")
+            print(" Dashboard will run with mock data")
 
     def run(self, host="127.0.0.1", port=8050, debug=True):
         """Run the dashboard application with enhanced startup info"""
         print("=" * 70)
         print("🇲🇾 MALAYSIA UNEMPLOYMENT ANALYTICS DASHBOARD")
         print("=" * 70)
-        print(f"🚀 Starting server on http://{host}:{port}")
-        print("📊 Professional modular architecture")
-        print("🎨 Enhanced styling and user experience")
-        print("🔧 Fixed serialization and callback issues")
-        print("⏰ Time period buttons fully functional")
-        print("📈 Real-time unemployment data visualization")
+        print(f" Starting server on http://{host}:{port}")
+        print(" Professional modular architecture")
+        print(" Enhanced styling and user experience")
+        print(" Fixed serialization and callback issues")
+        print(" Time period buttons fully functional")
+        print(" Real-time unemployment data visualization")
         print("=" * 70)
 
         # Print data status
         if self.data_manager.initialized:
-            print("✅ Data Manager: READY")
+            print(" Data Manager: READY")
         else:
-            print("⚠️ Data Manager: LIMITED (using fallback data)")
+            print(" Data Manager: LIMITED (using fallback data)")
 
-        print("✅ Theme Manager: READY")
-        print("✅ Layout: READY")
+        print(" Theme Manager: READY")
+        print(" Layout: READY")
         print("=" * 70)
 
         try:
@@ -151,9 +142,9 @@ class MalaysiaUnemploymentDashboard:
                 self.app.run_server(host=host, port=port, debug=debug)
 
         except KeyboardInterrupt:
-            print("\n🛑 Dashboard stopped by user")
+            print("\n Dashboard stopped by user")
         except Exception as e:
-            print(f"❌ Error running dashboard: {e}")
+            print(f" Error running dashboard: {e}")
             print("💡 Try running with different host/port settings")
 
     def get_app(self):
@@ -180,7 +171,7 @@ def main():
 
 def run_production(host="0.0.0.0", port=8050):
     """Run dashboard in production mode"""
-    print("🚀 Starting in PRODUCTION mode...")
+    print(" Starting dashboard..")
     dashboard_app.run(host=host, port=port, debug=False)
 
 

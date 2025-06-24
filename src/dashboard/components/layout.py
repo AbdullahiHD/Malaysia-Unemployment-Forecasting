@@ -15,7 +15,7 @@ def create_sidebar(colors):
             html.Div(
                 [
                     html.H4(
-                        "📊 Labor Force",
+                        "Labor Force",
                         style={
                             "color": "white",
                             "margin": 0,

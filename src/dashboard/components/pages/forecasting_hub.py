@@ -59,12 +59,16 @@ def create_forecasting_controls(colors):
                                     "label": "Seasonally Adjusted Labor Force",
                                     "value": "sa",
                                 },
+                                {
+                                    "label": "Youth Unemployment Data",
+                                    "value": "youth",
+                                },
                             ],
                             value="general",  # Default to general
                             style={"marginBottom": "15px"},
                         ),
                         html.P(
-                            "Choose between raw data or seasonally adjusted unemployment data",
+                            "Choose dataset type for forecasting",
                             style={
                                 "color": colors["text"],
                                 "fontSize": "12px",
@@ -164,23 +168,18 @@ def create_forecasting_controls(colors):
                                 "fontSize": "16px",
                             },
                         ),
-                        html.Div(
-                            [
-                                dbc.Badge(
-                                    "Unemployment Rate (%)",
-                                    color="primary",
-                                    style={
-                                        "fontSize": "14px",
-                                        "padding": "10px 15px",
-                                        "backgroundColor": colors["primary"],
-                                        "borderColor": colors["primary"],
-                                    },
-                                )
+                        dcc.Dropdown(
+                            id="forecast-target-dropdown",
+                            options=[
+                                {"label": "Overall Unemployment Rate (%)", "value": "u_rate"},
+                                {"label": "Youth Unemployment Rate 15-24 (%)", "value": "u_rate_15_24"},
+                                {"label": "Youth Unemployment Rate 15-30 (%)", "value": "u_rate_15_30"},
                             ],
+                            value="u_rate",  # Default to overall unemployment rate
                             style={"marginBottom": "15px"},
                         ),
                         html.P(
-                            "Models are trained specifically for unemployment rate prediction",
+                            "Select the target variable to forecast",
                             style={
                                 "color": colors["text"],
                                 "fontSize": "12px",
@@ -487,6 +486,16 @@ def create_forecast_chart(historical_data, forecast_data, colors):
         forecast_values = forecast_data.get('forecast_values', [])
         confidence_upper = forecast_data.get('confidence_upper', [])
         confidence_lower = forecast_data.get('confidence_lower', [])
+        target_variable = forecast_data.get('target_variable', 'u_rate')
+        
+        if target_variable == "u_rate":
+            target_name = "Malaysia Unemployment Rate"
+        elif target_variable == "u_rate_15_24":
+            target_name = "Malaysia Youth Unemployment Rate (15-24)"
+        elif target_variable == "u_rate_15_30":
+            target_name = "Malaysia Youth Unemployment Rate (15-30)"
+        else:
+            target_name = "Unemployment Rate"
         
         if hasattr(hist_dates, 'tolist'):
             hist_dates = hist_dates.tolist()
@@ -503,10 +512,10 @@ def create_forecast_chart(historical_data, forecast_data, colors):
             confidence_lower = confidence_lower.tolist()
         
         if not hist_dates or not hist_values or len(hist_dates) == 0 or len(hist_values) == 0:
-            return create_empty_forecast_chart(colors, "No historical data available")
+            return create_empty_forecast_chart(colors, "No historical data available", target_variable)
         
         if not forecast_dates or not forecast_values or len(forecast_dates) == 0 or len(forecast_values) == 0:
-            return create_empty_forecast_chart(colors, "No forecast data available")
+            return create_empty_forecast_chart(colors, "No forecast data available", target_variable)
         
         # Create subplot
         fig = go.Figure()
@@ -584,7 +593,7 @@ def create_forecast_chart(historical_data, forecast_data, colors):
         
         fig.update_layout(
             title={
-                'text': 'Malaysia Unemployment Rate: AI-Powered Forecast',
+                'text': f'{target_name}: AI-Powered Forecast',
                 'x': 0.5,
                 'font': {'size': 22, 'color': colors['primary'], 'family': 'Arial Black'}
             },
@@ -624,11 +633,20 @@ def create_forecast_chart(historical_data, forecast_data, colors):
         
     except Exception as e:
         print(f"Chart creation error: {str(e)}")
-        return create_error_forecast_chart(colors, str(e))
+        return create_error_forecast_chart(colors, str(e), target_variable)
 
 
-def create_empty_forecast_chart(colors, message="Select parameters to see forecast"):
+def create_empty_forecast_chart(colors, message="Select parameters to see forecast", target_variable="u_rate"):
     """Create empty forecast chart with simple colors"""
+    if target_variable == "u_rate":
+        target_name = "Unemployment Rate"
+    elif target_variable == "u_rate_15_24":
+        target_name = "Youth Unemployment Rate (15-24)"
+    elif target_variable == "u_rate_15_30":
+        target_name = "Youth Unemployment Rate (15-30)"
+    else:
+        target_name = "Unemployment Rate"
+        
     fig = go.Figure()
     fig.add_annotation(
         text=message,
@@ -640,7 +658,7 @@ def create_empty_forecast_chart(colors, message="Select parameters to see foreca
         showarrow=False
     )
     fig.update_layout(
-        title="Unemployment Rate Forecast",
+        title=f"{target_name} Forecast",
         template='plotly_white',
         height=500,
         plot_bgcolor='rgba(245,242,237,0.8)',
@@ -651,8 +669,17 @@ def create_empty_forecast_chart(colors, message="Select parameters to see foreca
     return fig
 
 
-def create_error_forecast_chart(colors, error_message):
+def create_error_forecast_chart(colors, error_message, target_variable="u_rate"):
     """Create error forecast chart with simple colors"""
+    if target_variable == "u_rate":
+        target_name = "Unemployment Rate"
+    elif target_variable == "u_rate_15_24":
+        target_name = "Youth Unemployment Rate (15-24)"
+    elif target_variable == "u_rate_15_30":
+        target_name = "Youth Unemployment Rate (15-30)"
+    else:
+        target_name = "Unemployment Rate"
+        
     fig = go.Figure()
     fig.add_annotation(
         text=f"Chart Error: {error_message}",
@@ -664,7 +691,7 @@ def create_error_forecast_chart(colors, error_message):
         showarrow=False
     )
     fig.update_layout(
-        title="Unemployment Rate Forecast - Error",
+        title=f"{target_name} Forecast - Error",
         template='plotly_white',
         height=500,
         plot_bgcolor='rgba(245,242,237,0.8)',
@@ -902,9 +929,103 @@ def create_model_specific_info(model_info, colors):
     """Create model-specific information based on model type"""
     model_type = model_info.get("model_type", "").upper()
 
-    if "SARIMA" in model_type:
+    if "WRAPPER" in model_type:
+        iteration = model_info.get("iteration", 4)
+        target_variable = model_info.get("target_variable", "")
+        mae = model_info.get("mae", 0.0)
+        mape = model_info.get("mape", 0.0)
+        rmse = model_info.get("rmse", 0.0)
+        accuracy = model_info.get("accuracy", 0.0)
+        rank = model_info.get("evaluation_rank", "N/A")
+        
+        return html.Div(
+            [
+                html.P(
+                    [html.Strong("Model Type: ")],
+                    style={"marginBottom": "8px", "fontSize": "12px"},
+                ),
+                html.P(
+                    [html.Strong("Iteration: "), f"i{iteration}"],
+                    style={"marginBottom": "8px", "fontSize": "12px"},
+                ),
+                html.P(
+                    [html.Strong("Target: "), target_variable.replace("u_rate_", "Ages ")],
+                    style={"marginBottom": "8px", "fontSize": "12px"},
+                ),
+                html.Hr(),
+                html.P(
+                    [html.Strong("Model Metrics")],
+                    style={
+                        "marginBottom": "8px",
+                        "fontSize": "14px",
+                        "color": colors["primary"],
+                    },
+                ),
+                html.P(
+                    [html.Strong("MAE: "), f"{mae:.4f}"],
+                    style={"marginBottom": "5px", "fontSize": "12px"},
+                ),
+                html.P(
+                    [html.Strong("MAPE: "), f"{mape:.2f}%"],
+                    style={"marginBottom": "5px", "fontSize": "12px"},
+                ),
+                html.P(
+                    [html.Strong("RMSE: "), f"{rmse:.4f}"],
+                    style={"marginBottom": "5px", "fontSize": "12px"},
+                ),
+                html.P(
+                    [html.Strong("Accuracy: "), f"{accuracy:.2f}%"],
+                    style={"marginBottom": "8px", "fontSize": "12px", "color": colors["success"]},
+                ),
+                html.P(
+                    [html.Strong("Rank: "), rank],
+                    style={
+                        "marginBottom": "8px",
+                        "fontSize": "12px",
+                        "color": colors["success"] if "Best" in rank else colors["info"],
+                    },
+                ),
+            ]
+        )
+    elif "SARIMA" in model_type:
         order = model_info.get("order", (0, 1, 1))
         seasonal_order = model_info.get("seasonal_order", (0, 1, 1, 12))
+        youth_age_group = model_info.get("youth_age_group", "")
+        
+        # Special display for youth SARIMA models
+        if youth_age_group:
+            return html.Div(
+                [
+                    html.P(
+                        [html.Strong("Model Type: "), f"Youth SARIMA Model"],
+                        style={"marginBottom": "8px", "fontSize": "12px"},
+                    ),
+                    html.P(
+                        [html.Strong("Age Group: "), f"{youth_age_group}"],
+                        style={"marginBottom": "8px", "fontSize": "12px"},
+                    ),
+                    html.P(
+                        [html.Strong("Model Order: "), f"SARIMA{order}×{seasonal_order}"],
+                        style={"marginBottom": "8px", "fontSize": "12px"},
+                    ),
+                    html.P(
+                        [html.Strong("Seasonality: "), "Monthly (12 periods)"],
+                        style={"marginBottom": "8px", "fontSize": "12px"},
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Note: "), 
+                            "This model is specifically trained on youth unemployment data"
+                        ],
+                        style={
+                            "marginBottom": "8px", 
+                            "fontSize": "12px",
+                            "color": colors["info"]
+                        },
+                    ),
+                ]
+            )
+        # Standard SARIMA display
         return html.Div(
             [
                 html.P(
@@ -919,6 +1040,42 @@ def create_model_specific_info(model_info, colors):
         )
     elif "ARIMA" in model_type:
         order = model_info.get("order", (0, 1, 0))
+        youth_age_group = model_info.get("youth_age_group", "")
+        
+        # display for youth ARIMA models
+        if youth_age_group:
+            return html.Div(
+                [
+                    html.P(
+                        [html.Strong("Model Type: "), f"Youth ARIMA Model"],
+                        style={"marginBottom": "8px", "fontSize": "12px"},
+                    ),
+                    html.P(
+                        [html.Strong("Age Group: "), f"{youth_age_group}"],
+                        style={"marginBottom": "8px", "fontSize": "12px"},
+                    ),
+                    html.P(
+                        [html.Strong("Model Order: "), f"ARIMA{order}"],
+                        style={"marginBottom": "8px", "fontSize": "12px"},
+                    ),
+                    html.P(
+                        [html.Strong("Type: "), "Non-seasonal"],
+                        style={"marginBottom": "8px", "fontSize": "12px"},
+                    ),
+                    html.P(
+                        [
+                            html.Strong("Note: "), 
+                            "This model is specifically trained on youth unemployment data"
+                        ],
+                        style={
+                            "marginBottom": "8px", 
+                            "fontSize": "12px",
+                            "color": colors["info"]
+                        },
+                    ),
+                ]
+            )
+        # Standard ARIMA display
         return html.Div(
             [
                 html.P(

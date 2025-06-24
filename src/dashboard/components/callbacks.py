@@ -47,13 +47,13 @@ try:
     from dashboard.utils.forecast_model_loader import ForecastManager
 
     FORECASTING_AVAILABLE = True
-    print("✅ Real forecasting models available")
+    print(" Real forecasting models available")
 except ImportError as e:
     FORECASTING_ERROR = str(e)
-    print(f"❌ Forecasting models not available: {e}")
+    print(f" Forecasting models not available: {e}")
 except Exception as e:
     FORECASTING_ERROR = str(e)
-    print(f"❌ Error importing forecasting models: {e}")
+    print(f" Error importing forecasting models: {e}")
 
 
 def register_all_callbacks(app, data_manager, colors):
@@ -80,43 +80,79 @@ def register_forecasting_callbacks(app, data_manager, colors):
             Input("forecast-dataset-dropdown", "value"),
             Input("forecast-model-dropdown", "value"),
             Input("forecast-period-dropdown", "value"),
+            Input("forecast-target-dropdown", "value"),
         ],
         prevent_initial_call=False,  
     )
-    def auto_generate_forecast(dataset_type, model_type, periods):
+    def auto_generate_forecast(dataset_type, model_type, periods, target_variable):
         """Auto-generate forecast when any dropdown changes - no button needed"""
 
-        # Check if all required inputs are available
-        if not dataset_type or not model_type or not periods:
-            return create_initial_forecast_state(colors)
+        if not dataset_type or not model_type or not periods or not target_variable:
+            return create_initial_forecast_state(colors, target_variable)
 
         # Checking if forecasting is available
         if not FORECASTING_AVAILABLE:
             error_msg = f"Forecasting not available: {FORECASTING_ERROR}"
-            print(f"❌ {error_msg}")
-            return create_forecast_error_state(error_msg, colors)
+            print(f" {error_msg}")
+            return create_forecast_error_state(error_msg, colors, target_variable)
 
         try:
             print(
-                f"🚀 Auto-generating forecast: {model_type} model, {dataset_type} dataset, {periods} periods"
+                f" Auto-generating forecast: {model_type} model, {dataset_type} dataset, {target_variable} target, {periods} periods"
             )
 
+            try:
+                periods = int(periods)
+            except (TypeError, ValueError):
+                periods = 3  
+                
+            # For wrapper models enforce maximum horizon of 14 months
+            if dataset_type == "youth" and model_type.startswith("wrapper_i") and periods > 14:
+                print(f" Wrapper models support maximum 14-month horizon. Limiting from {periods} to 14 months.")
+                periods = 14
+            # For youth ARIMA/SARIMA models, limit horizon to 12 months
+            if dataset_type == "youth" and (model_type.startswith("arima_") or model_type.startswith("sarima_")) and periods > 12:
+                print(f" Youth {model_type} supports maximum 12-month horizon. Limiting from {periods} to 12 months.")
+                periods = 12
+                
             forecast_manager = ForecastManager(data_manager, models_dir="models/saved")
+            
+            if dataset_type == "youth" and model_type.startswith("wrapper_i"):
+                iteration = int(model_type.replace("wrapper_i", ""))
+                
+                print(f" Generating wrapper forecast for {periods} periods")
+                complete_forecast = forecast_manager.generate_complete_forecast_with_wrapper(
+                    iteration, dataset_type, periods, target_variable
+                )
+            elif dataset_type == "youth" and (model_type.startswith("arima_") or model_type.startswith("sarima_")):
+                model_parts = model_type.split("_")
+                model_type_base = model_parts[0]  # 'arima' or 'sarima'
+                age_group = "_".join(model_parts[1:])  # '15_24' or '15_30'
+                target_variable = f"u_rate_{age_group}"
+                
+                print(f"🔍 Generating {model_type_base} forecast for youth {age_group} for {periods} periods")
+                
+                # Use the standard forecast generation with appropriate parameters
+                complete_forecast = forecast_manager.generate_complete_forecast(
+                    model_type_base, dataset_type, periods, target_variable
+                )
+            else:
+                # Check model availability for regular models
+                if not forecast_manager.validate_model_availability(
+                    model_type, dataset_type
+                ):
+                    error_msg = f"Model files not found for {model_type} on {dataset_type} dataset. Check models directory."
+                    print(f" {error_msg}")
+                    return create_forecast_error_state(error_msg, colors, target_variable)
 
-            if not forecast_manager.validate_model_availability(
-                model_type, dataset_type
-            ):
-                error_msg = f"Model files not found for {model_type} on {dataset_type} dataset. Check models directory."
-                print(f"❌ {error_msg}")
-                return create_forecast_error_state(error_msg, colors)
+                # Generate regular forecast
+                complete_forecast = forecast_manager.generate_complete_forecast(
+                    model_type, dataset_type, periods, target_variable
+                )
 
-            complete_forecast = forecast_manager.generate_complete_forecast(
-                model_type, dataset_type, periods
-            )
-
-            print(f"✅ Auto-forecast generated successfully")
+            print(f" Auto-forecast generated successfully")
             print(
-                f"📊 Available keys in complete_forecast: {list(complete_forecast.keys())}"
+                f" Available keys in complete_forecast: {list(complete_forecast.keys())}"
             )
 
             historical_data = complete_forecast.get("historical_data", {})
@@ -124,10 +160,10 @@ def register_forecasting_callbacks(app, data_manager, colors):
             model_info = complete_forecast.get("model_info", {})
 
             print(
-                f"📈 Historical data keys: {list(historical_data.keys()) if historical_data else 'None'}"
+                f" Historical data keys: {list(historical_data.keys()) if historical_data else 'None'}"
             )
             print(
-                f"🔮 Forecast data keys: {list(forecast_data.keys()) if forecast_data else 'None'}"
+                f" Forecast data keys: {list(forecast_data.keys()) if forecast_data else 'None'}"
             )
 
             if not historical_data or not forecast_data:
@@ -140,7 +176,7 @@ def register_forecasting_callbacks(app, data_manager, colors):
                     forecast_data = alt_forecast
 
                 print(
-                    f"📊 Using alternative keys - historical: {type(historical_data)}, forecast: {type(forecast_data)}"
+                    f" Using alternative keys - historical: {type(historical_data)}, forecast: {type(forecast_data)}"
                 )
 
             if historical_data:
@@ -164,6 +200,17 @@ def register_forecasting_callbacks(app, data_manager, colors):
                     forecast_data["confidence_lower"] = forecast_data[
                         "confidence_lower"
                     ].tolist()
+                    
+                if len(forecast_data.get("forecast_values", [])) != periods:
+                    print(f" Expected {periods} periods but got {len(forecast_data.get('forecast_values', []))} - adjusting")
+                    # Trim or extend the forecast to match requested periods
+                    if len(forecast_data.get("forecast_values", [])) > periods:
+                        forecast_data["forecast_values"] = forecast_data["forecast_values"][:periods]
+                        forecast_data["dates"] = forecast_data["dates"][:periods]
+                        if "confidence_upper" in forecast_data:
+                            forecast_data["confidence_upper"] = forecast_data["confidence_upper"][:periods]
+                        if "confidence_lower" in forecast_data:
+                            forecast_data["confidence_lower"] = forecast_data["confidence_lower"][:periods]
 
             # Add generation info to model_info
             if "generation_time" in complete_forecast:
@@ -172,7 +219,22 @@ def register_forecasting_callbacks(app, data_manager, colors):
                 ].strftime("%Y-%m-%d %H:%M:%S")
             model_info["forecast_periods"] = periods
             model_info["dataset"] = dataset_type
-            model_info["model_type"] = model_type.upper()
+            
+            # For wrapper models, set appropriate model_type
+            if dataset_type == "youth" and model_type.startswith("wrapper_i"):
+                iteration = int(model_type.replace("wrapper_i", ""))
+                model_info["model_type"] = f"WRAPPER-i{iteration}"
+                # Add maximum forecast horizon information
+                model_info["max_forecast_horizon"] = 14
+            elif dataset_type == "youth" and (model_type.startswith("arima_") or model_type.startswith("sarima_")):
+                model_parts = model_type.split("_")
+                model_type_base = model_parts[0].upper()  # 'ARIMA' or 'SARIMA'
+                age_group = "_".join(model_parts[1:])  # '15_24' or '15_30'
+                model_info["model_type"] = model_type_base
+                model_info["target_variable"] = f"u_rate_{age_group}"
+                model_info["youth_age_group"] = age_group.replace("_", "-")
+            else:
+                model_info["model_type"] = model_type.upper()
 
             enhanced_forecast_data = {
                 **forecast_data,
@@ -208,15 +270,15 @@ def register_forecasting_callbacks(app, data_manager, colors):
             forecast_table = create_forecast_table(forecast_data, colors)
             model_info_card = create_model_info_card(model_info, colors)
 
-            print(f"✅ All auto-forecast components created successfully")
+            print(f" All auto-forecast components created successfully")
             return summary_cards, forecast_chart, forecast_table, model_info_card
 
         except Exception as e:
             error_message = str(e)
-            print(f"❌ Auto-forecast generation failed: {error_message}")
-            print(f"📋 Full traceback:")
+            print(f" Auto-forecast generation failed: {error_message}")
+            print(f" Full traceback:")
             traceback.print_exc()
-            return create_forecast_error_state(error_message, colors)
+            return create_forecast_error_state(error_message, colors, target_variable)
 
     @app.callback(
         [
@@ -240,7 +302,44 @@ def register_forecasting_callbacks(app, data_manager, colors):
             ], True
 
         try:
-            # Check which models are actually available
+            if dataset_type == "youth":
+                wrapper_options = [
+                    {
+                        "label": "Wrapper 4 - CEEMDAN + validation (Best Performance)",
+                        "value": "wrapper_i4",
+                    },
+                    {
+                        "label": "Wrapper 3 - excluding CEEMDAN with validation loop",
+                        "value": "wrapper_i3",
+                    },
+                    {
+                        "label": "Wrapper 2 - with CEEMDAN decomposition",
+                        "value": "wrapper_i2",
+                    },
+                    {
+                        "label": "Wrapper 1 - base model",
+                        "value": "wrapper_i1",
+                    },
+                    {
+                        "label": "ARIMA - Youth 15-24 Age Group",
+                        "value": "arima_15_24",
+                    },
+                    {
+                        "label": "ARIMA - Youth 15-30 Age Group",
+                        "value": "arima_15_30",
+                    },
+                    {
+                        "label": "SARIMA - Youth 15-24 Age Group",
+                        "value": "sarima_15_24",
+                    },
+                    {
+                        "label": "SARIMA - Youth 15-30 Age Group",
+                        "value": "sarima_15_30",
+                    },
+                ]
+                print(f"📊 Available wrapper and time series models for youth dataset")
+                return wrapper_options, False
+                
             forecast_manager = ForecastManager(data_manager, models_dir="models/saved")
 
             available_options = []
@@ -270,12 +369,12 @@ def register_forecasting_callbacks(app, data_manager, colors):
                 ]
 
             print(
-                f"📊 Available models for {dataset_type}: {[opt['value'] for opt in available_options if not opt.get('disabled')]}"
+                f" Available models for {dataset_type}: {[opt['value'] for opt in available_options if not opt.get('disabled')]}"
             )
             return available_options, False
 
         except Exception as e:
-            print(f"❌ Error updating model options: {e}")
+            print(f" Error updating model options: {e}")
             return [
                 {
                     "label": f"Error loading models: {str(e)}",
@@ -283,6 +382,75 @@ def register_forecasting_callbacks(app, data_manager, colors):
                     "disabled": True,
                 }
             ], True
+
+    @app.callback(
+        [
+            Output("forecast-target-dropdown", "options"),
+            Output("forecast-target-dropdown", "value"),
+        ],
+        [Input("forecast-dataset-dropdown", "value")],
+        prevent_initial_call=False,
+    )
+    def update_target_options(dataset_type):
+        """Update available target variable options based on dataset selection"""
+        if not dataset_type:
+            return [], None
+
+        try:
+            if dataset_type == "youth":
+                target_options = [
+                    {"label": "Youth Unemployment Rate 15-24 (%)", "value": "u_rate_15_24"},
+                    {"label": "Youth Unemployment Rate 15-30 (%)", "value": "u_rate_15_30"},
+                ]
+                default_value = "u_rate_15_24"
+            else:
+                target_options = [
+                    {"label": "Overall Unemployment Rate (%)", "value": "u_rate"},
+                ]
+                default_value = "u_rate"
+                
+            print(f" Available targets for {dataset_type}: {[opt['value'] for opt in target_options]}")
+            return target_options, default_value
+
+        except Exception as e:
+            print(f" Error updating target options: {e}")
+            return [{"label": "Error loading targets", "value": "error", "disabled": True}], None
+
+    @app.callback(
+        Output("forecast-period-dropdown", "options"),
+        [Input("forecast-dataset-dropdown", "value")],
+        prevent_initial_call=False,
+    )
+    def update_period_options(dataset_type):
+        """Update available forecast period options based on dataset selection"""
+        if not dataset_type:
+            return []
+
+        try:
+            # Standard periods for all datasets
+            period_options = [
+                {"label": "1 Month Ahead", "value": 1},
+                {"label": "3 Months Ahead", "value": 3},
+                {"label": "6 Months Ahead", "value": 6},
+                {"label": "12 Months Ahead", "value": 12},
+            ]
+            
+            # For youth dataset with wrapper models, add the 14-month option
+            if dataset_type == "youth":
+                period_options.append({"label": "14 Months Ahead (Maximum)", "value": 14})
+                print(f" Added 14-month option for youth dataset")
+                
+            return period_options
+
+        except Exception as e:
+            print(f" Error updating period options: {e}")
+            return [
+                {"label": "1 Month Ahead", "value": 1},
+                {"label": "3 Months Ahead", "value": 3},
+                {"label": "6 Months Ahead", "value": 6},
+                {"label": "12 Months Ahead", "value": 12},
+            ]
+
 
 def register_overview_callbacks(app, data_manager, colors):
     """Register overview page specific callbacks - Direct data access without Store"""
@@ -352,10 +520,10 @@ def register_overview_callbacks(app, data_manager, colors):
                 df, youth_df, data_manager, colors, period
             )
 
-            print(f"✅ Chart updated successfully for period: {period}")
+            print(f" Chart updated successfully for period: {period}")
 
         except Exception as e:
-            print(f"❌ Error updating chart: {e}")
+            print(f" Error updating chart: {e}")
             import plotly.graph_objects as go
 
             fig = go.Figure()
@@ -438,7 +606,7 @@ def calculate_confidence_level(forecast_data):
     return confidence
 
 
-def create_initial_forecast_state(colors):
+def create_initial_forecast_state(colors, target_variable="u_rate"):
     """Create initial state with default LSTM 3-month forecast"""
     from dash import html
     import dash_bootstrap_components as dbc
@@ -460,7 +628,7 @@ def create_initial_forecast_state(colors):
     )
 
     # Loading chart
-    empty_chart = create_empty_forecast_chart(colors, "Loading AI forecast...")
+    empty_chart = create_empty_forecast_chart(colors, "Loading AI forecast...", target_variable)
 
     # Loading table and info
     empty_table = html.Div(
@@ -492,7 +660,7 @@ def create_initial_forecast_state(colors):
     return empty_cards, empty_chart, empty_table, empty_model_info
 
 
-def create_forecast_error_state(error_message, colors):
+def create_forecast_error_state(error_message, colors, target_variable="u_rate"):
     """Create error state for forecast generation with page colors"""
     from dash import html
     import dash_bootstrap_components as dbc
@@ -521,7 +689,7 @@ def create_forecast_error_state(error_message, colors):
         style={"borderColor": colors["danger"], "color": colors["danger"]},
     )
 
-    error_chart = create_error_forecast_chart(colors, error_message)
+    error_chart = create_error_forecast_chart(colors, error_message, target_variable)
 
     error_text = f"Error: {error_message}"
 
@@ -605,7 +773,7 @@ def register_navigation_callbacks(app, data_manager, colors):
 
 
 def register_explorer_callbacks(app, data_manager, colors):
-    """Register data explorer callbacks"""
+    """Register data explorer callbacks with professional column mapping"""
 
     @app.callback(
         Output("variable-dropdown", "options"), [Input("dataset-dropdown", "value")]
@@ -614,10 +782,20 @@ def register_explorer_callbacks(app, data_manager, colors):
         if not dataset:
             return []
         try:
-            variables = data_manager.get_numeric_columns(dataset)
-            return [{"label": var, "value": var} for var in variables]
-        except:
-            return []
+            # Get professional column mapping with categories
+            grouped_options = data_manager.get_column_display_options(
+                dataset, group_by_category=True
+            )
+            # Flatten the grouped structure for the dropdown
+            return flatten_grouped_options(grouped_options)
+        except Exception as e:
+            print(f"Error updating variable options: {e}")
+            # Fallback to simple options
+            try:
+                variables = data_manager.get_numeric_columns(dataset)
+                return [{"label": var, "value": var} for var in variables]
+            except:
+                return []
 
     @app.callback(
         [Output("explorer-chart", "figure"), Output("data-summary", "children")],
@@ -633,16 +811,60 @@ def register_explorer_callbacks(app, data_manager, colors):
 
         try:
             df = data_manager.get_dataset(dataset)
-            fig = create_time_series_chart(df, variables, chart_type, colors)
-            table = create_summary_table(df, variables, colors)
+
+            # Create enhanced chart with professional column names
+            fig = create_time_series_chart(
+                df, variables, chart_type, colors, data_manager
+            )
+
+            # Create enhanced summary table with professional column names
+            table = create_summary_table(df, variables, colors, data_manager)
+
             return fig, table
         except Exception as e:
             error_fig = create_error_chart(colors, str(e))
             return error_fig, f"Error: {str(e)}"
 
 
+def flatten_grouped_options(grouped_options):
+    """
+    Flatten grouped dropdown options into a flat list with section headers
+    """
+    if not grouped_options:
+        return []
+
+    # Check if options are already flat (not grouped)
+    if all(
+        isinstance(opt, dict) and "value" in opt and "options" not in opt
+        for opt in grouped_options
+    ):
+        return grouped_options
+
+    flattened = []
+
+    for group in grouped_options:
+        if isinstance(group, dict) and "options" in group:
+            # Add section header as disabled option
+            flattened.append(
+                {
+                    "label": f"── {group['label']} ──",
+                    "value": f"header_{group['label'].lower().replace(' ', '_')}",
+                    "disabled": True,
+                }
+            )
+
+            # Add the actual options
+            for option in group["options"]:
+                flattened.append(option)
+        else:
+            # If it's already a flat option, add it directly
+            flattened.append(group)
+
+    return flattened
+
+
 def register_statistics_callbacks(app, data_manager, colors):
-    """Register statistical analysis callbacks"""
+    """Register statistical analysis callbacks with flattened dropdown options"""
 
     @app.callback(
         Output("stat-variable-dropdown", "options"),
@@ -652,10 +874,19 @@ def register_statistics_callbacks(app, data_manager, colors):
         if not dataset:
             return []
         try:
-            variables = data_manager.get_numeric_columns(dataset)
-            return [{"label": var, "value": var} for var in variables]
-        except:
-            return []
+            # Get grouped options and flatten them
+            grouped_options = data_manager.get_column_display_options(
+                dataset, group_by_category=True
+            )
+            return flatten_grouped_options(grouped_options)
+        except Exception as e:
+            print(f"Error updating stat variable options: {e}")
+            # Fallback to simple options
+            try:
+                variables = data_manager.get_numeric_columns(dataset)
+                return [{"label": var, "value": var} for var in variables]
+            except:
+                return []
 
     @app.callback(
         Output("stat-results", "children"),
@@ -715,7 +946,7 @@ def register_statistics_callbacks(app, data_manager, colors):
 
 
 def register_transform_callbacks(app, data_manager, colors):
-    """Register transform dataset callbacks - FIXED: Added missing Box-Cox output"""
+    """Register transform dataset callbacks with flattened dropdown options"""
 
     @app.callback(
         Output("transform-variable-dropdown", "options"),
@@ -725,10 +956,19 @@ def register_transform_callbacks(app, data_manager, colors):
         if not dataset:
             return []
         try:
-            variables = data_manager.get_numeric_columns(dataset)
-            return [{"label": var, "value": var} for var in variables]
-        except:
-            return []
+            # Get grouped options and flatten them
+            grouped_options = data_manager.get_column_display_options(
+                dataset, group_by_category=True
+            )
+            return flatten_grouped_options(grouped_options)
+        except Exception as e:
+            print(f"Error updating transform variable options: {e}")
+            # Fallback to simple options
+            try:
+                variables = data_manager.get_numeric_columns(dataset)
+                return [{"label": var, "value": var} for var in variables]
+            except:
+                return []
 
     @app.callback(
         [
@@ -736,7 +976,7 @@ def register_transform_callbacks(app, data_manager, colors):
             Output("adf-test-result", "children"),
             Output("acf-chart", "figure"),
             Output("pacf-chart", "figure"),
-            Output("boxcox-chart", "figure"),  
+            Output("boxcox-chart", "figure"),
         ],
         [
             Input("transform-dataset-dropdown", "value"),
@@ -747,8 +987,7 @@ def register_transform_callbacks(app, data_manager, colors):
         ],
     )
     def update_transform_display(dataset, variable, apply_log, apply_diff, diff_lag):
-        """Update all transform charts including Box-Cox - FIXED"""
-
+        """Update all transform charts with professional column names"""
         if not dataset or not variable:
             empty_fig = create_empty_chart(colors, "Select dataset and variable")
             return empty_fig, "Select data to test", empty_fig, empty_fig, empty_fig
@@ -761,7 +1000,6 @@ def register_transform_callbacks(app, data_manager, colors):
             # Apply transformations
             if apply_log:
                 series = np.log1p(series)
-
             if apply_diff and diff_lag:
                 series = series.diff(diff_lag).dropna()
 
@@ -770,14 +1008,12 @@ def register_transform_callbacks(app, data_manager, colors):
                 original_series, series, apply_log, apply_diff, colors
             )
             acf_fig, pacf_fig = create_acf_pacf_charts_transform(series, colors)
-
             boxcox_fig = create_boxcox_chart(original_series, colors)
 
             # Running stationarity test
             stationarity_result = data_manager.run_statistical_analysis(
                 dataset, variable, "stationarity"
             )
-
             if "error" in stationarity_result:
                 conclusion = "Test Error"
             else:
@@ -786,13 +1022,11 @@ def register_transform_callbacks(app, data_manager, colors):
             test_p_value = np.random.random()
             test_result = create_adf_test_result(conclusion, test_p_value, colors)
 
-            print(
-                f"✅ Transform display updated successfully for {dataset} - {variable}"
-            )
+            print(f"Transform display updated successfully for {dataset} - {variable}")
             return transform_fig, test_result, acf_fig, pacf_fig, boxcox_fig
 
         except Exception as e:
-            print(f"❌ Error in transform display: {e}")
+            print(f"Error in transform display: {e}")
             error_fig = create_empty_chart(colors, f"Error: {str(e)}")
             error_result = create_error_alert(f"Error: {str(e)}", colors)
             return error_fig, error_result, error_fig, error_fig, error_fig

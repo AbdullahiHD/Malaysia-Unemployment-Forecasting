@@ -73,7 +73,6 @@ python run_dashboard.py
 
 ### Statistical Models
 - **ARIMA/SARIMA**: Traditional time series forecasting with seasonal components
-- **VAR Models**: Multivariate analysis of labor force relationships
 
 ### Machine Learning Models
 - **LSTM/**: Deep learning for capturing long-term dependencies
@@ -83,14 +82,13 @@ python run_dashboard.py
 - Mean Absolute Percentage Error (MAPE)
 - Root Mean Square Error (RMSE)
 - Mean Absolute Error (MAE)
-- Directional Accuracy
 
 ## 📈 Key Findings
 
 - **Non-stationarity**: All unemployment series require differencing
 - **Strong Seasonality**: Clear 12-month seasonal patterns
 - **Youth vs Overall**: Youth unemployment shows higher volatility
-- **Model Performance**: [To be updated with results]
+- **Model Performance**: LSTM Models achieved the highest performance
 
 ## 🎪 Interactive Dashboard
 
@@ -128,4 +126,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Tay, V. (2024). Comparing forecasting accuracy of time series models on Malaysian unemployment data.
 
 
-**Note**: This project is developed as part of our final year academic requirements and aims to provide practical insights into Malaysia's labor market dynamics.
+**Note**: This project is developed as part of our design projecy requirements and aims to provide practical insights into Malaysia's labor market dynamics.

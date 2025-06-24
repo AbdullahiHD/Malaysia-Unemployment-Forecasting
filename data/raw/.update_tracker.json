@@ -1,0 +1,27 @@
+{
+  "unemployment_general": {
+    "last_update": "2025-06-24T14:50:59.125553",
+    "success": true,
+    "update_interval_days": 28
+  },
+  "unemployment_sa": {
+    "last_update": "2025-06-24T14:50:59.428605",
+    "success": true,
+    "update_interval_days": 28
+  },
+  "youth_unemployment": {
+    "last_update": "2025-06-24T14:50:59.626051",
+    "success": true,
+    "update_interval_days": 28
+  },
+  "unemployment_duration": {
+    "last_update": "2025-06-24T14:50:59.830694",
+    "success": true,
+    "update_interval_days": 28
+  },
+  "employment_status": {
+    "last_update": "2025-06-24T14:51:00.057980",
+    "success": true,
+    "update_interval_days": 28
+  }
+}

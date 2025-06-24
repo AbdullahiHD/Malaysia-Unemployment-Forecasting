@@ -13,14 +13,13 @@ import warnings
 import os
 import sys
 
-# Import ensemble models for wrapper compatibility
 try:
     from dashboard.utils.ensemble_models import CEEMDANEnsemble
     ENSEMBLE_MODELS_AVAILABLE = True
-    print("✅ Ensemble models imported successfully")
+    print(" Ensemble models imported successfully")
 except ImportError as e:
     ENSEMBLE_MODELS_AVAILABLE = False
-    print(f"❌ Ensemble models not available: {e}")
+    print(f" Ensemble models not available: {e}")
 
 warnings.filterwarnings("ignore")
 
@@ -60,22 +59,22 @@ try:
     tf.get_logger().setLevel("ERROR")
 
     TENSORFLOW_AVAILABLE = True
-    print("✅ TensorFlow imported successfully")
+    print(" TensorFlow imported successfully")
 except ImportError as e:
-    print(f"❌ TensorFlow not available: {e}")
+    print(f" TensorFlow not available: {e}")
 
 # Import additional dependencies for wrapper models
 try:
     import sklearn
-    print(f"✅ scikit-learn {sklearn.__version__} imported successfully")
+    print(f" scikit-learn {sklearn.__version__} imported successfully")
 except ImportError as e:
-    print(f"❌ scikit-learn not available: {e}")
+    print(f" scikit-learn not available: {e}")
 
 try:
     import PyEMD
-    print(f"✅ PyEMD {PyEMD.__version__} imported successfully")
+    print(f" PyEMD {PyEMD.__version__} imported successfully")
 except ImportError as e:
-    print(f"❌ PyEMD not available: {e} - using fallback prediction for wrapper models")
+    print(f" PyEMD not available: {e} - using fallback prediction for wrapper models")
 
 
 class LSTMForecaster:
@@ -120,7 +119,7 @@ class LSTMForecaster:
                 current_sequence = np.append(current_sequence[1:], pred_scaled_flat)
 
             except Exception as e:
-                print(f"❌ Error in LSTM prediction step: {e}")
+                print(f" Error in LSTM prediction step: {e}")
                 # Robust fallback values
                 fallback_val = predictions[-1] if predictions else 3.5
                 predictions.append(fallback_val)
@@ -145,11 +144,11 @@ class ForecastModelLoader:
         for path in possible_paths:
             if path.exists():
                 self.models_dir = path
-                print(f"✅ Found models directory: {self.models_dir}")
+                print(f" Found models directory: {self.models_dir}")
                 break
 
         if self.models_dir is None:
-            print(f"❌ Models directory not found. Tried paths:")
+            print(f" Models directory not found. Tried paths:")
             for path in possible_paths:
                 print(f"   - {path} (exists: {path.exists()})")
             self.models_dir = Path(models_dir)  
@@ -184,14 +183,14 @@ class ForecastModelLoader:
 
     def _debug_available_files(self):
         """Debug what files are actually available"""
-        print(f"\n📂 Debugging models directory: {self.models_dir}")
+        print(f"\n Debugging models directory: {self.models_dir}")
 
         if not self.models_dir.exists():
-            print(f"❌ Directory does not exist")
+            print(f" Directory does not exist")
             return
 
         files = list(self.models_dir.glob("*"))
-        print(f"📁 Found {len(files)} files in directory:")
+        print(f" Found {len(files)} files in directory:")
 
         for file in files:
             size_kb = file.stat().st_size / 1024 if file.is_file() else 0
@@ -201,7 +200,7 @@ class ForecastModelLoader:
         for model_key, filename in self.model_patterns.items():
             file_path = self.models_dir / filename
             exists = file_path.exists()
-            print(f"   - {filename}: {'✅ Found' if exists else '❌ Missing'}")
+            print(f"   - {filename}: {' Found' if exists else ' Missing'}")
 
     def get_available_models(self):
         """Get list of available models with detailed checking"""
@@ -218,18 +217,18 @@ class ForecastModelLoader:
                         ),
                         "size_kb": file_path.stat().st_size / 1024,
                     }
-                    print(f"✅ {model_key}: {filename} available")
+                    print(f"{model_key}: {filename} available")
                 except Exception as e:
-                    print(f"❌ Error accessing {filename}: {e}")
+                    print(f" Error accessing {filename}: {e}")
             else:
-                print(f"❌ {model_key}: {filename} not found")
+                print(f" {model_key}: {filename} not found")
 
-        print(f"\n📊 Summary: {len(available)} model files available")
+        print(f"\n Summary: {len(available)} model files available")
         return available
 
     def load_lstm_model(self, dataset_type):
         """Load LSTM model with fixed compatibility and custom objects handling"""
-        print(f"\n🔄 Loading LSTM model: {dataset_type}")
+        print(f"\n Loading LSTM model: {dataset_type}")
 
         if not TENSORFLOW_AVAILABLE:
             raise ImportError(
@@ -248,17 +247,16 @@ class ForecastModelLoader:
             raise FileNotFoundError(f"LSTM metadata file not found: {metadata_path}")
 
         try:
-            print(f"📁 Loading metadata from: {metadata_path}")
+            print(f" Loading metadata from: {metadata_path}")
 
             # Load metadata first
             metadata = joblib.load(metadata_path)
-            print(f"✅ Metadata loaded: {type(metadata)}")
-            print(f"📊 Sequence length: {metadata.get('sequence_length', 'Unknown')}")
-            print(f"📊 Features: {metadata.get('n_features', 'Unknown')}")
+            print(f"Metadata loaded: {type(metadata)}")
+            print(f"Sequence length: {metadata.get('sequence_length', 'Unknown')}")
+            print(f"Features: {metadata.get('n_features', 'Unknown')}")
 
-            print(f"📁 Loading model from: {model_path}")
+            print(f" Loading model from: {model_path}")
 
-            # Create comprehensive custom objects for loading
             custom_objects = {
                 # Common metric variations
                 "mse": tf.keras.losses.MeanSquaredError(),
@@ -284,9 +282,9 @@ class ForecastModelLoader:
             keras_model = None
             loading_method = "unknown"
 
-            # Load with compile=False (safest approach)
+            # Load with compile=False 
             try:
-                print("🔄 Method 1: Loading with compile=False...")
+                print(" Method 1: Loading with compile=False...")
                 keras_model = load_model(model_path, compile=False)
 
                 # Recompile with explicit metrics
@@ -296,24 +294,24 @@ class ForecastModelLoader:
                     metrics=[MeanAbsoluteError()],
                 )
                 loading_method = "compile=False + recompile"
-                print("✅ Method 1 successful: Model loaded and recompiled")
+                print(" Method 1 successful: Model loaded and recompiled")
 
             except Exception as e1:
-                print(f"⚠️ Method 1 failed: {e1}")
+                print(f" Method 1 failed: {e1}")
 
                 # Load with comprehensive custom objects
                 try:
-                    print("🔄 Method 2: Loading with custom objects...")
+                    print(" Method 2: Loading with custom objects...")
                     keras_model = load_model(model_path, custom_objects=custom_objects)
                     loading_method = "custom_objects"
-                    print("✅ Method 2 successful: Model loaded with custom objects")
+                    print(" Method 2 successful: Model loaded with custom objects")
 
                 except Exception as e2:
-                    print(f"⚠️ Method 2 failed: {e2}")
+                    print(f" Method 2 failed: {e2}")
 
                     # Rebuild architecture and load weights
                     try:
-                        print("🔄 Method 3: Rebuilding architecture...")
+                        print(" Method 3: Rebuilding architecture...")
 
                         # Create model with exact architecture from notebook
                         model = Sequential(
@@ -340,26 +338,25 @@ class ForecastModelLoader:
                             metrics=[MeanAbsoluteError()],
                         )
 
-                        # Try to load weights
                         try:
                             # Load the entire model first to extract weights
                             temp_model = load_model(model_path, compile=False)
                             model.set_weights(temp_model.get_weights())
-                            print("✅ Weights loaded from original model")
+                            print(" Weights loaded from original model")
                         except:
                             print(
-                                "⚠️ Could not load original weights, using random initialization"
+                                " Could not load original weights, using random initialization"
                             )
 
                         keras_model = model
                         loading_method = "rebuilt_architecture"
-                        print("✅ Method 3 successful: Architecture rebuilt")
+                        print(" Method 3 successful: Architecture rebuilt")
 
                     except Exception as e3:
-                        print(f"❌ Method 3 failed: {e3}")
+                        print(f" Method 3 failed: {e3}")
 
                         try:
-                            print("🔄 Method 4: Creating basic fallback model...")
+                            print(" Method 4: Creating basic fallback model...")
 
                             model = Sequential(
                                 [
@@ -386,14 +383,14 @@ class ForecastModelLoader:
                             print("⚠️ Method 4: Using fallback model (not trained)")
 
                         except Exception as e4:
-                            print(f"❌ All methods failed: {e4}")
+                            print(f" All methods failed: {e4}")
                             raise RuntimeError(f"Could not load LSTM model: {e4}")
 
             if keras_model is None:
                 raise RuntimeError("No loading method succeeded")
 
-            print(f"✅ Model loaded successfully using: {loading_method}")
-            print(f"📊 Model summary: {keras_model.count_params()} parameters")
+            print(f" Model loaded successfully using: {loading_method}")
+            print(f" Model summary: {keras_model.count_params()} parameters")
 
             # Reconstruct LSTM forecaster
             lstm_forecaster = LSTMForecaster(
@@ -436,12 +433,12 @@ class ForecastModelLoader:
                 ),
             }
 
-            print(f"✅ LSTM {dataset_type} model loaded successfully")
-            print(f"📈 Model performance: MAPE={mape}%, Accuracy={accuracy}%")
+            print(f" LSTM {dataset_type} model loaded successfully")
+            print(f" Model performance: MAPE={mape}%, Accuracy={accuracy}%")
             return lstm_forecaster
 
         except Exception as e:
-            print(f"❌ Failed to load LSTM model for {dataset_type}: {str(e)}")
+            print(f" Failed to load LSTM model for {dataset_type}: {str(e)}")
             raise RuntimeError(
                 f"Failed to load LSTM model for {dataset_type}: {str(e)}"
             )
@@ -463,11 +460,11 @@ class ForecastModelLoader:
             raise FileNotFoundError(f"SARIMA model file not found: {file_path}")
 
         try:
-            print(f"📁 Loading from: {file_path}")
+            print(f" Loading from: {file_path}")
 
-            # Load using joblib as saved in notebook
+            # Load using joblib as saved 
             model = joblib.load(file_path)
-            print(f"✅ Model loaded successfully: {type(model)}")
+            print(f" Model loaded successfully: {type(model)}")
 
             self.loaded_models[model_key] = model
 
@@ -503,11 +500,11 @@ class ForecastModelLoader:
                 "accuracy": accuracy,
             }
 
-            print(f"✅ SARIMA {dataset_type} model loaded successfully")
+            print(f" SARIMA {dataset_type} model loaded successfully")
             return model
 
         except Exception as e:
-            print(f"❌ Failed to load SARIMA model {model_key}: {str(e)}")
+            print(f" Failed to load SARIMA model {model_key}: {str(e)}")
             raise RuntimeError(f"Failed to load SARIMA model {model_key}: {str(e)}")
 
     def load_arima_model(self, dataset_type):
@@ -527,11 +524,11 @@ class ForecastModelLoader:
             raise FileNotFoundError(f"ARIMA model file not found: {file_path}")
 
         try:
-            print(f"📁 Loading from: {file_path}")
+            print(f" Loading from: {file_path}")
 
             # Load ARIMA model data
             model_data = joblib.load(file_path)
-            print(f"✅ Model data loaded: {type(model_data)}")
+            print(f" Model data loaded: {type(model_data)}")
 
             self.loaded_models[model_key] = model_data
 
@@ -549,7 +546,6 @@ class ForecastModelLoader:
             seasonal_order = (0, 1, 1, 12) if dataset_type == "sarima" else None
 
             try:
-                # Direct statsmodels results objects usually expose .model
                 if hasattr(model_data, "model"):
                     sm_model = model_data.model
                 # skforecast ForecasterSarimax stores underlying results in .regressor
@@ -585,11 +581,11 @@ class ForecastModelLoader:
                 "accuracy": accuracy,
             }
 
-            print(f"✅ ARIMA {dataset_type} model loaded successfully")
+            print(f"ARIMA {dataset_type} model loaded successfully")
             return model_data
 
         except Exception as e:
-            print(f"❌ Failed to load ARIMA model {model_key}: {str(e)}")
+            print(f" Failed to load ARIMA model {model_key}: {str(e)}")
             raise RuntimeError(f"Failed to load ARIMA model {model_key}: {str(e)}")
 
     def load_wrapper_model(self, iteration, target_variable):
@@ -600,16 +596,15 @@ class ForecastModelLoader:
         if not filename:
             raise ValueError(f"No wrapper model pattern defined for {model_key}")
         
-        print(f"\n🔄 Loading wrapper model: {model_key}")
+        print(f"\n Loading wrapper model: {model_key}")
         
         file_path = self.models_dir / filename
         if not file_path.exists():
             raise FileNotFoundError(f"Wrapper model file not found: {file_path}")
             
         try:
-            print(f"📁 Loading from: {file_path}")
+            print(f" Loading from: {file_path}")
             
-            # Make sure the CEEMDANEnsemble class is in __main__ namespace for pickle
             import __main__
             setattr(__main__, 'CEEMDANEnsemble', CEEMDANEnsemble)
             from .forecast_model_loader import LSTMForecaster
@@ -617,21 +612,19 @@ class ForecastModelLoader:
 
 
 
-            # Try direct pickle loading first, but ensure it's a true CEEMDANEnsemble
+            # Try direct pickle loading first
             try:
                 with open(file_path, 'rb') as f:
                     wrapper_model = pickle.load(f)
                 if not isinstance(wrapper_model, CEEMDANEnsemble):
                     raise TypeError(f"Expected CEEMDANEnsemble, got {type(wrapper_model)}")
-                print(f"✅ Wrapper model loaded successfully with direct pickle: {type(wrapper_model)}")
+                print(f" Wrapper model loaded successfully with direct pickle: {type(wrapper_model)}")
             except Exception as e1:
                 print(f"⚠️ Direct pickle invalid or wrong type ({e1}), building fallback CEEMDANEnsemble")
                 
-                # If direct loading fails, create a compatible wrapper manually
                 print("🔄 Creating compatible wrapper model...")
                 wrapper_model = CEEMDANEnsemble()
                 
-                # Explicitly set fitted to True to avoid the "Model must be fitted before prediction" error
                 wrapper_model.fitted = True
                 
                 # Load the dataset directly from parquet file
@@ -663,24 +656,21 @@ class ForecastModelLoader:
                 except Exception as e2:
                     print(f"⚠️ Error loading youth data: {e2}")
                     print("🔄 Using synthetic data as fallback")
-                    # Generate synthetic history as last resort
                     np.random.seed(42)
                     if target_variable == "u_rate_15_24":
-                        wrapper_model.X_history = 10.5 + np.random.randn(60) * 0.5  # ~10-11% unemployment
-                    else:  # u_rate_15_30
-                        wrapper_model.X_history = 7.0 + np.random.randn(60) * 0.3  # ~7% unemployment
+                        wrapper_model.X_history = 10.5 + np.random.randn(60) * 0.5 
+                    else: 
+                        wrapper_model.X_history = 7.0 + np.random.randn(60) * 0.3  
                 
                 print("⚠️ Using fallback wrapper model (won't match original performance)")
             
-            # CRITICAL FIX: Make sure the model is marked as fitted
             if not hasattr(wrapper_model, 'fitted') or not wrapper_model.fitted:
                 wrapper_model.fitted = True
                 print("⚠️ Explicitly setting model as fitted")
                 
             self.loaded_models[model_key] = wrapper_model
             
-            # Dynamically calculate model performance metrics 
-            # using backtesting on historical data if available
+            # using backtesting on historical data 
             try:
                 # Load youth data if not already done
                 if not hasattr(wrapper_model, 'X_history') or wrapper_model.X_history is None:
@@ -709,8 +699,7 @@ class ForecastModelLoader:
                 train_data = historical_values[:-test_size]
                 test_data = historical_values[-test_size:]
                 
-                # Generate predictions - SIMPLIFIED to match example code
-                # Using a modified predict call without the periods parameter
+                # Generate predictions 
                 predictions = wrapper_model.predict(train_data)[:test_size]
                 
                 # Calculate accuracy metrics
@@ -725,9 +714,8 @@ class ForecastModelLoader:
                 # Accuracy (100 - MAPE)
                 accuracy = 100 - mape
                 
-                print(f"📊 Dynamic model evaluation - MAE: {mae:.4f}, MAPE: {mape:.2f}%, Accuracy: {accuracy:.2f}%")
+                print(f" ynamic model evaluation - MAE: {mae:.4f}, MAPE: {mape:.2f}%, Accuracy: {accuracy:.2f}%")
                 
-                # Set model iteration rank based on known performance
                 if iteration == 4:
                     rank = "Best Performer"
                 elif iteration == 3:
@@ -738,8 +726,7 @@ class ForecastModelLoader:
                     rank = "Baseline Model"
                 
             except Exception as e3:
-                print(f"⚠️ Error in dynamic evaluation: {e3}")
-                # Fallback to estimated values based on iteration number
+                print(f" Error in dynamic evaluation: {e3}")
                 if iteration == 4:
                     mae = 0.14 if target_variable == 'u_rate_15_24' else 0.11
                     mape = 1.2 if target_variable == 'u_rate_15_24' else 1.0
@@ -778,7 +765,7 @@ class ForecastModelLoader:
                 "description": f"Ensemble wrapper model (iteration {iteration})",
                 "training_period": "2016-2023",
                 "validation_period": "2023-2024",
-                "max_forecast_horizon": 14,  # Match example code
+                "max_forecast_horizon": 14,  
                 "mae": mae,
                 "mape": mape,
                 "rmse": rmse, 
@@ -786,26 +773,25 @@ class ForecastModelLoader:
                 "evaluation_rank": rank
             }
             
-            print(f"✅ Wrapper model {model_key} loaded successfully")
+            print(f" Wrapper model {model_key} loaded successfully")
             return wrapper_model
             
         except Exception as e:
-            print(f"❌ Failed to load wrapper model {model_key}: {str(e)}")
+            print(f" Failed to load wrapper model {model_key}: {str(e)}")
             raise RuntimeError(f"Failed to load wrapper model {model_key}: {str(e)}")
 
     def load_model(self, model_type, dataset_type, target_variable="u_rate"):
         """Load specific model based on type and dataset with debugging"""
         # For youth dataset, use wrapper models or specific youth models
         if dataset_type == "youth":
-            # Check if this is a request for a youth-specific ARIMA or SARIMA model
             if model_type in ["arima", "sarima"] and target_variable.startswith("u_rate_"):
                 age_group = target_variable.replace("u_rate_", "")
                 model_key = f"{model_type}_{age_group}"
                 
-                print(f"\n🎯 Request to load youth model: {model_key}")
+                print(f"\n Request to load youth model: {model_key}")
                 
                 if model_key in self.loaded_models:
-                    print(f"✅ Youth model already loaded from cache")
+                    print(f" Youth model already loaded from cache")
                     return self.loaded_models[model_key]
                 
                 try:
@@ -813,13 +799,12 @@ class ForecastModelLoader:
                     if not file_path.exists():
                         raise FileNotFoundError(f"Youth model file not found: {file_path}")
                     
-                    print(f"📁 Loading from: {file_path}")
+                    print(f" Loading from: {file_path}")
                     model_data = joblib.load(file_path)
-                    print(f"✅ Youth model data loaded: {type(model_data)}")
+                    print(f" Youth model data loaded: {type(model_data)}")
                     
                     self.loaded_models[model_key] = model_data
                     
-                    # Robustly extract model orders whether the object is a dict or a statsmodels results object
                     if isinstance(model_data, dict):
                         order = model_data.get("order", (0, 1, 0))
                         seasonal_order = (
@@ -828,15 +813,12 @@ class ForecastModelLoader:
                             else None
                         )
                     else:
-                        # Handle Statsmodels results or skforecast ForecasterSarimax
                         order = (0, 1, 0)
                         seasonal_order = (0, 1, 1, 12) if model_type == "sarima" else None
 
                         try:
-                            # Direct statsmodels results objects usually expose .model
                             if hasattr(model_data, "model"):
                                 sm_model = model_data.model
-                            # skforecast ForecasterSarimax stores underlying results in .regressor
                             elif hasattr(model_data, "regressor") and hasattr(model_data.regressor, "model"):
                                 sm_model = model_data.regressor.model
                             else:
@@ -866,15 +848,13 @@ class ForecastModelLoader:
                         "target_variable": target_variable
                     }
                     
-                    print(f"✅ Youth {model_type} model {model_key} loaded successfully")
+                    print(f" Youth {model_type} model {model_key} loaded successfully")
                     return model_data
                     
                 except Exception as e:
-                    print(f"❌ Failed to load youth {model_type} model {model_key}: {str(e)}")
+                    print(f"Failed to load youth {model_type} model {model_key}: {str(e)}")
                     raise
             
-            # Default to wrapper models for other youth dataset cases
-            # Default to wrapper iteration 4 (best performance based on colab code)
             iteration = 4
             try:
                 return self.load_wrapper_model(iteration, target_variable)
@@ -882,13 +862,12 @@ class ForecastModelLoader:
                 print(f"❌ Failed to load wrapper model for {target_variable}: {str(e)}")
                 raise
         
-        # For other datasets, use the existing models
         model_key = f"{model_type}_{dataset_type}"
 
-        print(f"\n🎯 Request to load model: {model_type} for {dataset_type} dataset")
+        print(f"\n Request to load model: {model_type} for {dataset_type} dataset")
 
         if model_key in self.loaded_models:
-            print(f"✅ Model already loaded from cache")
+            print(f" Model already loaded from cache")
             return self.loaded_models[model_key]
 
         try:
@@ -901,7 +880,7 @@ class ForecastModelLoader:
             else:
                 raise ValueError(f"Unknown model type: {model_type}")
         except Exception as e:
-            print(f"❌ Failed to load {model_type} model for {dataset_type}: {str(e)}")
+            print(f" Failed to load {model_type} model for {dataset_type}: {str(e)}")
             raise
 
     def generate_forecast(self, model_type, dataset_type, periods, historical_data, target_variable="u_rate"):
@@ -918,30 +897,29 @@ class ForecastModelLoader:
                     age_group = target_variable.replace("u_rate_", "")
                     model_key = f"{model_type}_{age_group}"
                     
-                    print(f"🔄 Using youth-specific {model_type} model for {age_group}")
+                    print(f" Using youth-specific {model_type} model for {age_group}")
                     
                     # Load the appropriate youth model
                     model = self.load_model(model_type, dataset_type, target_variable)
                     
                     # Get the current rate
                     current_rate = historical_data[target_variable].iloc[-1]
-                    print(f"📊 Current rate: {current_rate:.2f}%")
+                    print(f" Current rate: {current_rate:.2f}%")
                     
                     # Generate forecast based on model type
                     if model_type == "sarima":
-                        print("🔄 Generating youth SARIMA forecast...")
+                        print(" Generating youth SARIMA forecast...")
                         forecast_result = model.predict(steps=periods)
                         if hasattr(forecast_result, "values"):
                             forecast_values = forecast_result.values
                         else:
                             forecast_values = np.array(forecast_result)
                     else:  # arima
-                        print("🔄 Generating youth ARIMA forecast...")
+                        print(" Generating youth ARIMA forecast...")
                         if isinstance(model, dict) and "model_fit" in model:
                             model_fit = model["model_fit"]
                             forecast_result = model_fit.forecast(steps=periods)
                         else:
-                            # If model is already the fitted model
                             forecast_result = model.forecast(steps=periods)
                             
                         if hasattr(forecast_result, "values"):
@@ -951,7 +929,7 @@ class ForecastModelLoader:
                                 [forecast_result] if np.isscalar(forecast_result) else forecast_result
                             )
                     
-                    print(f"✅ Youth {model_type} forecast generated: {forecast_values}")
+                    print(f" Youth {model_type} forecast generated: {forecast_values}")
                     
                     # Calculate confidence intervals
                     std_dev = historical_data[target_variable].diff().dropna().std()
@@ -969,7 +947,7 @@ class ForecastModelLoader:
                         current_rate, forecast_values
                     )
                     
-                    # Get model information
+                    # Getting model information
                     model_info = self.model_metadata.get(model_key, {})
                     if not model_info:
                         # If metadata not already set, create default values
@@ -993,11 +971,9 @@ class ForecastModelLoader:
                         "target_variable": target_variable
                     }
                     
-                    print(f"✅ Youth {model_type} forecast package complete")
+                    print(f" Youth {model_type} forecast package complete")
                     return forecast_data
                 
-                # Handle wrapper models for youth unemployment
-                # Default to wrapper iteration 4 (best performance)
                 if not model_type.startswith("wrapper_i"):
                     iteration = 4
                 else:
@@ -1005,33 +981,28 @@ class ForecastModelLoader:
                 
                 model_key = f"wrapper_i{iteration}_{target_variable}"
                 
-                # Load the wrapper model
                 wrapper_model = self.load_wrapper_model(iteration, target_variable)
                 
                 # Get the historical values
                 historical_values = historical_data[target_variable].values
                 current_rate = historical_values[-1]
                 
-                # Generate forecast using the wrapper - use standard predict without periods parameter
-                print(f"🔄 Generating wrapper forecast for {target_variable} for {periods} periods...")
+                # Generate forecast using the wrapper 
+                print(f" Generating wrapper forecast for {target_variable} for {periods} periods...")
                 
-                # Different predict call based on whether the model accepts periods parameter
                 try:
-                    # First try with standard call (no periods parameter)
                     forecast_all = wrapper_model.predict(historical_values)
-                    # Then take just what we need
                     forecast_values = forecast_all[:periods]
                 except TypeError as e:
                     if "got an unexpected keyword argument 'periods'" in str(e):
-                        # If model doesn't accept periods, use standard call
                         forecast_all = wrapper_model.predict(historical_values)
                         forecast_values = forecast_all[:periods]
                     else:
                         raise
                 
-                print(f"✅ Wrapper forecast generated: {forecast_values}")
+                print(f"Wrapper forecast generated: {forecast_values}")
                 
-                # Calculate confidence intervals (using simple approach)
+                # Calculate confidence intervals 
                 std_dev = historical_data[target_variable].diff().dropna().std()
                 confidence_lower = forecast_values - 1.96 * std_dev
                 confidence_upper = forecast_values + 1.96 * std_dev
@@ -1069,18 +1040,17 @@ class ForecastModelLoader:
                     "target_variable": target_variable
                 }
                 
-                print(f"✅ Wrapper forecast package complete")
+                print(f" Wrapper forecast package complete")
                 return forecast_data
             
-            # For other datasets, use the existing approach
             model = self.load_model(model_type, dataset_type)
             model_key = f"{model_type}_{dataset_type}"
 
             current_rate = historical_data[target_variable].iloc[-1]
-            print(f"📊 Current rate: {current_rate:.2f}%")
+            print(f" Current rate: {current_rate:.2f}%")
 
             if model_type == "sarima":
-                print("🔄 Generating SARIMA forecast...")
+                print(" Generating SARIMA forecast...")
                 forecast_result = model.predict(steps=periods)
                 if hasattr(forecast_result, "values"):
                     forecast_values = forecast_result.values
@@ -1088,7 +1058,7 @@ class ForecastModelLoader:
                     forecast_values = np.array(forecast_result)
 
             elif model_type == "arima":
-                print("🔄 Generating ARIMA forecast...")
+                print(" Generating ARIMA forecast...")
                 model_fit = model["model_fit"]
                 forecast_result = model_fit.forecast(steps=periods)
 
@@ -1102,7 +1072,7 @@ class ForecastModelLoader:
                     )
 
             elif model_type == "lstm":
-                print("🔄 Generating LSTM forecast...")
+                print(" Generating LSTM forecast...")
                 last_sequence = historical_data[target_variable].tail(12).values
                 last_seq_scaled = model.scaler.transform(
                     last_sequence.reshape(-1, 1)
@@ -1110,7 +1080,7 @@ class ForecastModelLoader:
 
                 forecast_values = model.predict(last_seq_scaled, steps=periods)
 
-            print(f"✅ Forecast generated: {forecast_values}")
+            print(f"Forecast generated: {forecast_values}")
 
             std_dev = historical_data[target_variable].diff().dropna().std()
             confidence_lower = forecast_values - 1.96 * std_dev
@@ -1144,11 +1114,11 @@ class ForecastModelLoader:
                 "target_variable": target_variable
             }
 
-            print(f"✅ Forecast package complete")
+            print(f" Forecast package complete")
             return forecast_data
 
         except Exception as e:
-            print(f"❌ Forecast generation failed: {str(e)}")
+            print(f" Forecast generation failed: {str(e)}")
             raise RuntimeError(f"Forecast generation failed: {str(e)}")
 
     def _analyze_trend(self, current_rate, forecast_values):
@@ -1199,16 +1169,13 @@ class ForecastDataPreparer:
         try:
             if dataset_type == "youth":
                 df = self.data_manager.get_dataset("Youth Unemployment")
-                # Ensure the youth dataset has the necessary target column
                 if target_variable not in df.columns:
                     raise ValueError(f"Target variable {target_variable} not found in youth dataset")
             elif dataset_type == "general":
                 df = self.data_manager.get_dataset("Overall Unemployment")
-                # Force target_variable to u_rate for general dataset
                 target_variable = "u_rate"
             else:  # sa dataset
                 df = self.data_manager.get_dataset("Seasonally Adjusted")
-                # Force target_variable to u_rate for sa dataset
                 target_variable = "u_rate"
 
             df = df.asfreq("MS")
@@ -1281,16 +1248,16 @@ class ForecastManager:
         available = self.model_loader.get_available_models()
         if len(available) > 0:
             print(
-                f"✅ ForecastManager initialized with {len(available)} available models"
+                f" ForecastManager initialized with {len(available)} available models"
             )
         else:
-            print(f"⚠️ ForecastManager initialized but no models found")
+            print(f" ForecastManager initialized but no models found")
 
     def generate_complete_forecast_with_wrapper(self, iteration, dataset_type, periods, target_variable):
         """Generate complete forecast using a wrapper model for youth unemployment"""
         try:
             print(
-                f"\n🎯 Complete wrapper forecast request: iteration {iteration}, {dataset_type}, {target_variable}, {periods} periods"
+                f"\n Complete wrapper forecast request: iteration {iteration}, {dataset_type}, {target_variable}, {periods} periods"
             )
 
             # Validate inputs
@@ -1300,23 +1267,20 @@ class ForecastManager:
             if target_variable not in ["u_rate_15_24", "u_rate_15_30"]:
                 raise ValueError(f"Invalid target variable {target_variable} for youth dataset")
                 
-            # Ensure periods is properly cast to integer
             try:
                 periods = int(periods)
             except (TypeError, ValueError):
-                periods = 3  # Default to 3 months if conversion fails
+                periods = 3  
                 
-            # Enforce maximum forecast horizon
-            MAX_HORIZON = 14  # Maximum horizon supported by wrapper models
+            # maximum forecast horizon
+            MAX_HORIZON = 14  
             if periods > MAX_HORIZON:
                 print(f"⚠️ Requested {periods} periods exceeds maximum horizon of {MAX_HORIZON}. Using {MAX_HORIZON} instead.")
                 periods = MAX_HORIZON
                 
             print(f"🔍 Generating forecast for {periods} periods")
 
-            # Load the youth data directly from parquet instead of using data_manager
             try:
-                # Try different potential paths to find the youth data
                 youth_data_paths = [
                     Path("data/raw/youth_unemployment.parquet"),
                     Path(self.model_loader.models_dir).parent.parent / "data" / "raw" / "youth_unemployment.parquet",
@@ -1338,7 +1302,7 @@ class ForecastManager:
                 if target_variable not in full_dataset.columns:
                     raise ValueError(f"Target variable {target_variable} not found in youth data")
                 
-                print(f"✅ Loaded youth data with {len(full_dataset)} records")
+                print(f" Loaded youth data with {len(full_dataset)} records")
                 
                 # Prepare historical data
                 historical_data = {
@@ -1349,7 +1313,7 @@ class ForecastManager:
                 }
                 
             except Exception as e:
-                print(f"❌ Error loading youth data: {e}")
+                print(f" Error loading youth data: {e}")
                 raise RuntimeError(f"Failed to load youth unemployment data: {e}")
 
             # Load the wrapper model
@@ -1359,26 +1323,22 @@ class ForecastManager:
             historical_values = full_dataset[target_variable].values
             current_rate = historical_values[-1]
             
-            # Generate forecast using direct approach from example code
-            print(f"🔄 Generating wrapper forecast for {target_variable}...")
+            # Generate forecast 
+            print(f" Generating wrapper forecast for {target_variable}...")
             
-            # Different predict call based on whether the model accepts periods parameter
             try:
-                # First try without periods parameter (standard call)
                 forecast_all = wrapper_model.predict(historical_values)
-                # Then take just what we need
                 forecast_values = forecast_all[:periods]
             except TypeError as e:
                 if "got an unexpected keyword argument 'periods'" in str(e):
-                    # If model doesn't accept periods, use standard call
                     forecast_all = wrapper_model.predict(historical_values)
                     forecast_values = forecast_all[:periods]
                 else:
                     raise
             
-            print(f"✅ Wrapper forecast generated: {forecast_values}")
+            print(f" Wrapper forecast generated: {forecast_values}")
             
-            # Calculate confidence intervals (using simple approach)
+            # Calculate confidence intervals 
             std_dev = full_dataset[target_variable].diff().dropna().std()
             confidence_lower = forecast_values - 1.96 * std_dev
             confidence_upper = forecast_values + 1.96 * std_dev
@@ -1397,16 +1357,14 @@ class ForecastManager:
             model_key = f"wrapper_i{iteration}_{target_variable}"
             model_info = self.model_loader.model_metadata.get(model_key, {})
             
-            # If model info is not available, calculate on the fly
             if not model_info:
                 # Perform backtesting for dynamic evaluation
                 try:
-                    # Use the last 6 months as a test set (like in example code)
                     test_size = min(6, len(historical_values) // 5)
                     train_data = historical_values[:-test_size]
                     test_data = historical_values[-test_size:]
                     
-                    # Generate predictions using the same approach as the example code
+                    # Generate predictions 
                     predictions = wrapper_model.predict(train_data)[:test_size]
                     
                     # Calculate metrics
@@ -1416,7 +1374,6 @@ class ForecastManager:
                     rmse = np.sqrt(metrics.mean_squared_error(test_data, predictions))
                     accuracy = 100 - mape
                     
-                    # Determine rank based on iteration
                     if iteration == 4:
                         rank = "Best Performer"
                     elif iteration == 3:
@@ -1464,7 +1421,6 @@ class ForecastManager:
                 "target_variable": target_variable
             }
             
-            # Package complete results
             complete_forecast = {
                 "historical_data": historical_data,
                 "forecast_data": forecast_data,
@@ -1478,18 +1434,18 @@ class ForecastManager:
                 },
             }
             
-            print(f"✅ Complete wrapper forecast generated successfully for {periods} periods")
+            print(f" Complete wrapper forecast generated successfully for {periods} periods")
             return complete_forecast
 
         except Exception as e:
-            print(f"❌ Complete wrapper forecast generation failed: {str(e)}")
+            print(f" Complete wrapper forecast generation failed: {str(e)}")
             raise RuntimeError(f"Complete wrapper forecast generation failed: {str(e)}")
 
     def generate_complete_forecast(self, model_type, dataset_type, periods, target_variable="u_rate"):
         """Generate complete forecast with all components"""
         try:
             print(
-                f"\n🎯 Complete forecast request: {model_type}, {dataset_type}, {target_variable}, {periods} periods"
+                f"\n Complete forecast request: {model_type}, {dataset_type}, {target_variable}, {periods} periods"
             )
 
             # Validate inputs
@@ -1497,7 +1453,7 @@ class ForecastManager:
                 model_type, dataset_type, periods, target_variable
             )
 
-            # Prepare historical data using same preprocessing as notebook
+            # Preparing historical data 
             historical_data, full_dataset = self.data_preparer.prepare_historical_data(
                 dataset_type, target_variable
             )
@@ -1507,7 +1463,6 @@ class ForecastManager:
                 model_type, dataset_type, periods, full_dataset, target_variable
             )
 
-            # Package complete results
             complete_forecast = {
                 "historical_data": historical_data,
                 "forecast_data": forecast_data,
@@ -1521,11 +1476,11 @@ class ForecastManager:
                 },
             }
 
-            print(f"✅ Complete forecast generated successfully")
+            print(f" Complete forecast generated successfully")
             return complete_forecast
 
         except Exception as e:
-            print(f"❌ Complete forecast generation failed: {str(e)}")
+            print(f" Complete forecast generation failed: {str(e)}")
             raise RuntimeError(f"Complete forecast generation failed: {str(e)}")
 
     def validate_model_availability(self, model_type, dataset_type):
@@ -1553,7 +1508,7 @@ class ForecastManager:
             return result
 
         except Exception as e:
-            print(f"❌ Error checking model availability: {e}")
+            print(f" Error checking model availability: {e}")
             return False
 
     def get_model_status(self):
@@ -1616,7 +1571,6 @@ def calculate_forecast_accuracy_estimate(model_type, periods):
         "arima": 87.92,  # ARIMA_General (12.08% MAPE)
     }
 
-    # Accuracy decreases with longer forecast horizons
     horizon_penalty = {1: 0, 3: -1, 6: -2, 12: -5}
 
     estimated_accuracy = base_accuracy.get(model_type, 85) + horizon_penalty.get(
@@ -1643,7 +1597,7 @@ def generate_forecast_summary(forecast_data):
             f"Unemployment is expected to remain relatively stable with minimal change."
         )
 
-    # Add context based on magnitude
+    # Adding context based on magnitude
     if abs(change) > 0.5:
         urgency = "significant"
     elif abs(change) > 0.2:

@@ -10,7 +10,6 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 import sys
 
-# Try to import PyEMD if available
 try:
     from PyEMD import CEEMDAN
     PYEMD_AVAILABLE = True
@@ -64,7 +63,6 @@ class CEEMDANEnsemble:
         Predict using the ensemble model
         If PyEMD is not available, provide a simplified prediction
         """
-        # Ensure we've been fitted
         if not self.fitted:
             raise ValueError("Model must be fitted before prediction")
 
@@ -77,10 +75,9 @@ class CEEMDANEnsemble:
             base = series[-1]
             return np.array([base + (i + 1) * trend for i in range(horizon)])
 
-        # Decide forecast horizon (max 14 like original wrappers)
+        # Decide forecast horizon
         horizon = min(14, max(1, len(X) // 3))
 
-        # If no sub-models are available, fall back immediately
         if not getattr(self, "models", None):
             return _trend_forecast(X, horizon)
 
@@ -95,7 +92,6 @@ class CEEMDANEnsemble:
         subfs = []
         for idx, m in enumerate(self.models):
             series = imfs[idx]
-            # --- Case 1: Keras model + scaler (original notebooks) ---
             if (
                 hasattr(m, 'predict') and
                 hasattr(self, 'scalers') and
@@ -113,7 +109,7 @@ class CEEMDANEnsemble:
                     hist.append(yhat)
                 preds = scaler.inverse_transform(np.array(preds_scaled).reshape(-1, 1)).flatten()
 
-            # --- Case 2: Custom LSTMForecaster wrapper with sequence_length ---
+            # Custom LSTMForecaster wrapper with sequence_length ---
             elif hasattr(m, 'sequence_length'):
                 win = series[-m.sequence_length:].reshape(-1,1)
                 scaled = m.scaler.transform(win).flatten()
@@ -123,7 +119,7 @@ class CEEMDANEnsemble:
                 preds = m.predict(win)
             subfs.append(np.asarray(preds).reshape(-1))
 
-        # 3) forecast residual if exists
+        # forecast residual if exists
         if self.residual_model:
             resid = X - np.sum(imfs, axis=0)
             if hasattr(self.residual_model, 'sequence_length'):
@@ -135,7 +131,7 @@ class CEEMDANEnsemble:
                 r = self.residual_model.predict(win)
             subfs.append(np.asarray(r).reshape(-1))
 
-        # 4) sum up and return a clean 1-D array
+        # sum up and return a clean 1-D array
         combined = np.sum(np.stack(subfs, axis=0), axis=0)
         return combined.reshape(-1)
     
@@ -149,11 +145,9 @@ class CEEMDANEnsemble:
              'n_imfs': self.n_imfs,
              'input_size': self.input_size,
              'X_history': self.X_history,
-             # Persist the actual trained components
              'imfs': self.imfs,
              'models': self.models,
              'residual_model': self.residual_model,
-             # Extra attributes used by original Colab wrappers
              'scalers': self.scalers,
              'n_lag': self.n_lag,
              'horizon': self.horizon
@@ -179,10 +173,8 @@ class CEEMDANEnsemble:
         self.scalers        = state.get('scalers', [])
         self.n_lag          = state.get('n_lag', getattr(self, 'n_lag', 12))
         self.horizon        = state.get('horizon', getattr(self, 'horizon', 14))
-        # Retain any other keys present in state for future use
         for k, v in state.items():
             if not hasattr(self, k):
                 setattr(self, k, v)
 
-# Make sure the class is available in the global namespace for pickle loading
 sys.modules['__main__'].CEEMDANEnsemble = CEEMDANEnsemble 

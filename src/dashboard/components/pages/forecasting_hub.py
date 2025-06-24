@@ -488,7 +488,6 @@ def create_forecast_chart(historical_data, forecast_data, colors):
         confidence_lower = forecast_data.get('confidence_lower', [])
         target_variable = forecast_data.get('target_variable', 'u_rate')
         
-        # Get a user-friendly name for the target variable
         if target_variable == "u_rate":
             target_name = "Malaysia Unemployment Rate"
         elif target_variable == "u_rate_15_24":
@@ -639,7 +638,6 @@ def create_forecast_chart(historical_data, forecast_data, colors):
 
 def create_empty_forecast_chart(colors, message="Select parameters to see forecast", target_variable="u_rate"):
     """Create empty forecast chart with simple colors"""
-    # Get a user-friendly name for the target variable
     if target_variable == "u_rate":
         target_name = "Unemployment Rate"
     elif target_variable == "u_rate_15_24":
@@ -673,7 +671,6 @@ def create_empty_forecast_chart(colors, message="Select parameters to see foreca
 
 def create_error_forecast_chart(colors, error_message, target_variable="u_rate"):
     """Create error forecast chart with simple colors"""
-    # Get a user-friendly name for the target variable
     if target_variable == "u_rate":
         target_name = "Unemployment Rate"
     elif target_variable == "u_rate_15_24":
@@ -1045,7 +1042,7 @@ def create_model_specific_info(model_info, colors):
         order = model_info.get("order", (0, 1, 0))
         youth_age_group = model_info.get("youth_age_group", "")
         
-        # Special display for youth ARIMA models
+        # display for youth ARIMA models
         if youth_age_group:
             return html.Div(
                 [

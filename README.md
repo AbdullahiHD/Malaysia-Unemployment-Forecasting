@@ -125,5 +125,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Ismail, N., et al. (2022). Forecasting the unemployment rate in Malaysia during COVID-19 pandemic using ARIMA and ARFIMA models.
 - Tay, V. (2024). Comparing forecasting accuracy of time series models on Malaysian unemployment data.
 
-
-**Note**: This project is developed as part of our design projecy requirements and aims to provide practical insights into Malaysia's labor market dynamics.
